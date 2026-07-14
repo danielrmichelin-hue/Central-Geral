@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Central Geral — tokens + base
+   ============================================================ */
+:root {
+  --bg: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1c2026;
+  --surface-3: #22272f;
+  --line: #262b33;
+  --line-strong: #333a45;
+  --ink: #e6e9ef;
+  --muted: #8a93a2;
+  --faint: #5b6573;
+  --accent: #6e8bff;
+  --gold: #c9a961;
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --streak: #fb923c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@layer components {
+  .card {
+    @apply rounded border border-line bg-surface p-5;
+  }
+
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[1.6px] text-gold;
+  }
+
+  .card-title {
+    @apply mb-3.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[1.3px] text-ink-muted;
+  }
+
+  .inp {
+    @apply w-full rounded-sm border border-line bg-bg px-3 py-2.5 text-ink transition placeholder:text-faint;
+  }
+  .inp:focus {
+    @apply border-accent outline-none;
+  }
+  textarea.inp {
+    @apply min-h-[72px] resize-y;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm border border-transparent px-4 py-2.5 text-[13px] font-semibold transition;
+  }
+  .btn-primary {
+    @apply bg-accent text-white hover:brightness-110;
+  }
+  .btn-primary:hover {
+    box-shadow: var(--tw-shadow, 0 4px 18px rgba(110, 139, 255, 0.35));
+  }
+  .btn-ghost {
+    @apply border-line bg-surface-2 text-ink hover:bg-surface-3;
+  }
+  .btn-gold {
+    color: var(--gold);
+    background: rgba(201, 169, 97, 0.13);
+    border-color: rgba(201, 169, 97, 0.27);
+  }
+  .btn-gold:hover {
+    background: rgba(201, 169, 97, 0.2);
+  }
+  .btn-danger {
+    color: var(--danger);
+    background: rgba(248, 113, 113, 0.13);
+    border-color: rgba(248, 113, 113, 0.27);
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-block {
+    @apply w-full;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold;
+  }
+}
