@@ -2,6 +2,10 @@
 
 Um sistema modular para organizar sua vida **profissional**, **intelectual** e **pessoal** — com um **painel único** ("Hoje") que reúne tudo o que você precisa fazer no dia.
 
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/danielrmichelin-hue/Central-Geral)
+
+> Clicar no botão acima importa este repositório direto no Netlify (build já configurado). O site sobe **na hora em modo demonstração**; depois adicione as variáveis do Supabase (abaixo) para ligar login + nuvem.
+
 - 🧩 **Módulos** — cada área da vida é um módulo (crie, renomeie, escolha cor e ícone).
 - 🗓️ **Atividades fixas ou pontuais** — uma matéria que se repete toda semana, ou uma tarefa só daquele dia.
 - ✨ **Cronograma 100% editável** — monte sua grade da semana do jeito que quiser.
