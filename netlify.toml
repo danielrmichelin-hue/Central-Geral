@@ -1,0 +1,13 @@
+# Configuração de deploy do Netlify para a Central Geral
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: toda rota cai no index.html (React Router cuida do resto)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
