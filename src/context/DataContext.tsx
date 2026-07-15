@@ -1,12 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { store, DEFAULT_MODULES } from '../lib/store';
-import type { Activity, Completion, Module, NewActivity } from '../lib/types';
+import type { Activity, BibleReading, Completion, Module, NewActivity } from '../lib/types';
 import { useAuth } from './AuthContext';
 
 interface DataCtx {
   modules: Module[];
   activities: Activity[];
   completions: Completion[];
+  bibleReading: BibleReading[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -14,6 +15,7 @@ interface DataCtx {
   updateActivity: (id: string, patch: Partial<Activity>) => Promise<void>;
   deleteActivity: (id: string) => Promise<void>;
   toggleCompletion: (activityId: string, date: string) => Promise<void>;
+  toggleBibleChapter: (bookId: string, chapter: number) => Promise<void>;
   addModule: (m: Omit<Module, 'id' | 'created_at'>) => Promise<void>;
   updateModule: (id: string, patch: Partial<Module>) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
@@ -27,6 +29,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [modules, setModules] = useState<Module[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [completions, setCompletions] = useState<Completion[]>([]);
+  const [bibleReading, setBibleReading] = useState<BibleReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,10 +43,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const m of DEFAULT_MODULES) await store.createModule(m);
         mods = await store.listModules();
       }
-      const [acts, comps] = await Promise.all([store.listActivities(), store.listCompletions()]);
+      const [acts, comps, bible] = await Promise.all([
+        store.listActivities(),
+        store.listCompletions(),
+        store.listBibleReading(),
+      ]);
       setModules(mods);
       setActivities(acts);
       setCompletions(comps);
+      setBibleReading(bible);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
     } finally {
@@ -57,6 +65,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setModules([]);
       setActivities([]);
       setCompletions([]);
+      setBibleReading([]);
       setLoading(false);
     }
   }, [user, refresh]);
@@ -86,6 +95,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleBibleChapter = async (bookId: string, chapter: number) => {
+    const exists = bibleReading.some((b) => b.book_id === bookId && b.chapter === chapter);
+    if (exists) {
+      setBibleReading((prev) => prev.filter((b) => !(b.book_id === bookId && b.chapter === chapter)));
+      await store.removeBibleChapter(bookId, chapter);
+    } else {
+      const created = await store.addBibleChapter(bookId, chapter);
+      setBibleReading((prev) => [
+        ...prev.filter((b) => !(b.book_id === bookId && b.chapter === chapter)),
+        created,
+      ]);
+    }
+  };
+
   const addModule = async (m: Omit<Module, 'id' | 'created_at'>) => {
     const created = await store.createModule(m);
     setModules((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
@@ -106,6 +129,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         modules,
         activities,
         completions,
+        bibleReading,
         loading,
         error,
         refresh,
@@ -113,6 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updateActivity,
         deleteActivity,
         toggleCompletion,
+        toggleBibleChapter,
         addModule,
         updateModule,
         deleteModule,
