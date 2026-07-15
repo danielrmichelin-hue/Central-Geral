@@ -43,15 +43,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
         for (const m of DEFAULT_MODULES) await store.createModule(m);
         mods = await store.listModules();
       }
-      const [acts, comps, bible] = await Promise.all([
-        store.listActivities(),
-        store.listCompletions(),
-        store.listBibleReading(),
-      ]);
+      const [acts, comps] = await Promise.all([store.listActivities(), store.listCompletions()]);
       setModules(mods);
       setActivities(acts);
       setCompletions(comps);
-      setBibleReading(bible);
+      // Leitura Bíblica é opcional: se a tabela ainda não existe no Supabase,
+      // isso NÃO pode derrubar o carregamento dos módulos e atividades.
+      try {
+        setBibleReading(await store.listBibleReading());
+      } catch {
+        setBibleReading([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
     } finally {
