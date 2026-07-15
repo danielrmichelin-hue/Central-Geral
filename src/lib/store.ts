@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { toISO } from './date';
-import type { Activity, Completion, Module, NewActivity } from './types';
+import type { Activity, BibleReading, Completion, Module, NewActivity } from './types';
 
 export interface Store {
   listModules(): Promise<Module[]>;
@@ -16,6 +16,10 @@ export interface Store {
   listCompletions(): Promise<Completion[]>;
   addCompletion(activityId: string, date: string): Promise<Completion>;
   removeCompletion(activityId: string, date: string): Promise<void>;
+
+  listBibleReading(): Promise<BibleReading[]>;
+  addBibleChapter(bookId: string, chapter: number): Promise<BibleReading>;
+  removeBibleChapter(bookId: string, chapter: number): Promise<void>;
 }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -38,12 +42,17 @@ interface LocalDB {
   modules: Module[];
   activities: Activity[];
   completions: Completion[];
+  bibleReading: BibleReading[];
 }
 
 function readDB(): LocalDB {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as LocalDB;
+    if (raw) {
+      const db = JSON.parse(raw) as LocalDB;
+      if (!db.bibleReading) db.bibleReading = []; // migração leve
+      return db;
+    }
   } catch {
     /* ignore */
   }
@@ -84,7 +93,7 @@ function seedDB(): LocalDB {
     // Pontual — exemplo do dia (igual ao caso da lâmpada)
     mk({ module_id: byslug('pessoal'), title: 'Trocar lâmpada da cozinha', recurrence: 'once', date: toISO(), duration_min: 15 }),
   ];
-  const db: LocalDB = { modules, activities, completions: [] };
+  const db: LocalDB = { modules, activities, completions: [], bibleReading: [] };
   writeDB(db);
   return db;
 }
@@ -169,6 +178,25 @@ class LocalStore implements Store {
     db.completions = db.completions.filter((x) => !(x.activity_id === activityId && x.date === date));
     writeDB(db);
   }
+
+  async listBibleReading() {
+    return readDB().bibleReading;
+  }
+  async addBibleChapter(bookId: string, chapter: number) {
+    const db = readDB();
+    let r = db.bibleReading.find((x) => x.book_id === bookId && x.chapter === chapter);
+    if (!r) {
+      r = { id: uid(), book_id: bookId, chapter };
+      db.bibleReading.push(r);
+      writeDB(db);
+    }
+    return r;
+  }
+  async removeBibleChapter(bookId: string, chapter: number) {
+    const db = readDB();
+    db.bibleReading = db.bibleReading.filter((x) => !(x.book_id === bookId && x.chapter === chapter));
+    writeDB(db);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -249,6 +277,29 @@ class SupabaseStore implements Store {
       .delete()
       .eq('activity_id', activityId)
       .eq('date', date);
+    if (error) throw error;
+  }
+
+  async listBibleReading() {
+    const { data, error } = await this.sb.from('bible_reading').select('*');
+    if (error) throw error;
+    return (data ?? []) as BibleReading[];
+  }
+  async addBibleChapter(bookId: string, chapter: number) {
+    const { data, error } = await this.sb
+      .from('bible_reading')
+      .upsert({ book_id: bookId, chapter }, { onConflict: 'user_id,book_id,chapter' })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as BibleReading;
+  }
+  async removeBibleChapter(bookId: string, chapter: number) {
+    const { error } = await this.sb
+      .from('bible_reading')
+      .delete()
+      .eq('book_id', bookId)
+      .eq('chapter', chapter);
     if (error) throw error;
   }
 }

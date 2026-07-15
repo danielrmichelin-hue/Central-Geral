@@ -48,6 +48,15 @@ export interface Completion {
   created_at?: string;
 }
 
+/** Um capítulo bíblico lido (presença = lido). */
+export interface BibleReading {
+  id: string;
+  user_id?: string;
+  book_id: string;
+  chapter: number;
+  created_at?: string;
+}
+
 export interface NewActivity {
   module_id: string;
   title: string;

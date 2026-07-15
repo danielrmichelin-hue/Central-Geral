@@ -43,15 +43,26 @@ create table if not exists public.completions (
   unique (activity_id, date)
 );
 
+create table if not exists public.bible_reading (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  book_id text not null,
+  chapter int not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, book_id, chapter)
+);
+
 create index if not exists activities_module_idx on public.activities (module_id);
 create index if not exists activities_user_idx on public.activities (user_id);
 create index if not exists completions_date_idx on public.completions (date);
 create index if not exists completions_user_idx on public.completions (user_id);
+create index if not exists bible_reading_user_idx on public.bible_reading (user_id);
 
 -- ---------- Row Level Security ----------
 alter table public.modules enable row level security;
 alter table public.activities enable row level security;
 alter table public.completions enable row level security;
+alter table public.bible_reading enable row level security;
 
 drop policy if exists "own modules" on public.modules;
 create policy "own modules" on public.modules
@@ -63,6 +74,10 @@ create policy "own activities" on public.activities
 
 drop policy if exists "own completions" on public.completions;
 create policy "own completions" on public.completions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own bible" on public.bible_reading;
+create policy "own bible" on public.bible_reading
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ---------- Semear módulos padrão para cada novo usuário ----------

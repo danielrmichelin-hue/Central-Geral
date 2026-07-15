@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { ModulePage } from './pages/ModulePage';
 import { SchedulePage } from './pages/SchedulePage';
+import { BiblePage } from './pages/BiblePage';
 import { Settings } from './pages/Settings';
 
 function Splash() {
@@ -29,6 +30,7 @@ function AppRoutes() {
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="m/:slug" element={<ModulePage />} />
+        <Route path="biblia" element={<BiblePage />} />
         <Route path="cronograma" element={<SchedulePage />} />
         <Route path="ajustes" element={<Settings />} />
       </Route>

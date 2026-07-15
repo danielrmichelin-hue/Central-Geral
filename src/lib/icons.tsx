@@ -22,6 +22,7 @@ const paths: Record<string, string> = {
   sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M12 2v2 M12 20v2 M4.9 4.9l1.4 1.4 M17.7 17.7l1.4 1.4 M2 12h2 M20 12h2 M4.9 19.1l1.4-1.4 M17.7 6.3l1.4-1.4',
   dumbbell: 'M6 8v8 M18 8v8 M4 10v4 M20 10v4 M6 12h12',
   wallet: 'M3 7h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M3 7l2-3h12l2 3 M17 13h.01',
+  cross: 'M10 3h4v6h6v4h-6v8h-4v-8H4V9h6z',
 };
 
 interface IconProps extends SVGProps<SVGSVGElement> {

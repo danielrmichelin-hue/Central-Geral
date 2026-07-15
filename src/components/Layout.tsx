@@ -61,6 +61,11 @@ export function Layout() {
         {modules.map((m) => navItem(`/m/${m.slug}`, m.icon, m.name, m.color))}
 
         <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
+          Leitura
+        </div>
+        {navItem('/biblia', 'cross', 'Leitura Bíblica', 'var(--gold)')}
+
+        <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
           Sistema
         </div>
         {navItem('/cronograma', 'calendar', 'Cronograma')}
