@@ -57,6 +57,8 @@ export interface BibleReading {
   created_at?: string;
 }
 
+export type SubjectSchedule = 'none' | 'fixed' | 'once';
+
 /** Uma matéria/disciplina com cronograma de aulas. */
 export interface Subject {
   id: string;
@@ -69,6 +71,12 @@ export interface Subject {
   notes: string | null;
   active: boolean;
   sort_order: number;
+  /** Agendamento de estudo: 'none' = não agendada; 'fixed' = semanal; 'once' = um dia. */
+  recurrence: SubjectSchedule;
+  /** Para 'fixed': dias da semana (0=Dom ... 6=Sáb). */
+  days_of_week: number[];
+  /** Para 'once': data 'YYYY-MM-DD'. */
+  study_date: string | null;
   created_at?: string;
 }
 
@@ -78,6 +86,9 @@ export interface NewSubject {
   total_lessons: number;
   color?: string | null;
   notes?: string | null;
+  recurrence?: SubjectSchedule;
+  days_of_week?: number[];
+  study_date?: string | null;
 }
 
 /** Registro de uma aula concluída (com duração opcional, ex: do Pomodoro). */

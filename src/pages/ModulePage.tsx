@@ -5,15 +5,20 @@ import { useData } from '../context/DataContext';
 import { ActivityModal } from '../components/ActivityModal';
 import { Icon } from '../lib/icons';
 import { WD3, fmtMin, fmtShort, toISO, weekdayOf } from '../lib/date';
-import { subjectStats } from '../lib/subjects';
+import { lastLessonLog, subjectStats } from '../lib/subjects';
 import type { Activity } from '../lib/types';
 
 export function ModulePage() {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { modules, activities, subjects, lessonLogs, addLessonLog } = useData();
+  const { modules, activities, subjects, lessonLogs, addLessonLog, removeLessonLog } = useData();
   const [editing, setEditing] = useState<Activity | null>(null);
   const [creating, setCreating] = useState(false);
+
+  const removeLastLesson = (subjectId: string) => {
+    const last = lastLessonLog(subjectId, lessonLogs);
+    if (last) removeLessonLog(last.id);
+  };
 
   const module = modules.find((m) => m.slug === slug);
   const list = useMemo(
@@ -139,15 +144,24 @@ export function ModulePage() {
                   <div className="font-mono text-sm font-semibold tabular-nums">{st.pct}%</div>
                   <div className="text-[11px] text-ink-muted">faltam {st.remaining}</div>
                 </div>
-                {!st.completed && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={st.done === 0}
+                    onClick={() => removeLastLesson(s.id)}
+                    title="Remover a última aula"
+                  >
+                    <Icon name="minus" size={14} />
+                  </button>
                   <button
                     className="btn btn-gold btn-sm"
+                    disabled={st.completed}
                     onClick={() => addLessonLog(s.id, toISO(), null)}
                     title="Registrar 1 aula"
                   >
                     <Icon name="plus" size={14} /> aula
                   </button>
-                )}
+                </div>
               </div>
             );
           })}

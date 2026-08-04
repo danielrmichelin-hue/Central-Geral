@@ -1,5 +1,22 @@
 import type { LessonLog, Subject } from './types';
-import { addDays, pct, toISO } from './date';
+import { addDays, pct, toISO, weekdayOf } from './date';
+
+/** A matéria tem estudo agendado nesta data (ISO)? */
+export function subjectOnDate(s: Subject, iso: string): boolean {
+  if (!s.active) return false;
+  if (s.recurrence === 'fixed') return s.days_of_week.includes(weekdayOf(iso));
+  if (s.recurrence === 'once') return s.study_date === iso;
+  return false;
+}
+
+export function subjectsForDate(subjects: Subject[], iso: string): Subject[] {
+  return subjects.filter((s) => subjectOnDate(s, iso));
+}
+
+/** Foi estudada (pelo menos uma aula registrada) nesta data? */
+export function studiedOn(subjectId: string, logs: LessonLog[], iso: string): boolean {
+  return logs.some((l) => l.subject_id === subjectId && l.date === iso);
+}
 
 export interface SubjectStats {
   done: number;
@@ -90,6 +107,17 @@ export function weeklyPace(subjectId: string, logs: LessonLog[], weeks = 8): num
     out.push(mine.filter((l) => l.date >= start && l.date <= end).length);
   }
   return out;
+}
+
+/** A aula registrada mais recentemente de uma matéria (para o botão "− aula"). */
+export function lastLessonLog(subjectId: string, logs: LessonLog[]): LessonLog | undefined {
+  const mine = logs.filter((l) => l.subject_id === subjectId);
+  if (!mine.length) return undefined;
+  const withTs = mine.filter((l) => l.created_at);
+  if (withTs.length) {
+    return withTs.reduce((a, b) => ((a.created_at as string) > (b.created_at as string) ? a : b));
+  }
+  return mine[mine.length - 1];
 }
 
 /** Duração média de uma aula em minutos (para prever tempo restante). */
