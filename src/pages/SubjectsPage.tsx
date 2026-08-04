@@ -6,7 +6,7 @@ import { Modal } from '../components/Modal';
 import { SubjectModal } from '../components/SubjectModal';
 import { Icon } from '../lib/icons';
 import { fmtMin, fmtShort, toISO } from '../lib/date';
-import { overallStudyStats, subjectStats, weeklyPace } from '../lib/subjects';
+import { lastLessonLog, overallStudyStats, subjectStats, weeklyPace } from '../lib/subjects';
 import type { Subject } from '../lib/types';
 
 function Bar({ value, color = 'var(--accent)' }: { value: number; color?: string }) {
@@ -30,8 +30,13 @@ function Stat({ v, k }: { v: string; k: string }) {
 }
 
 export function SubjectsPage() {
-  const { subjects, lessonLogs, modules, addLessonLog } = useData();
+  const { subjects, lessonLogs, modules, addLessonLog, removeLessonLog } = useData();
   const [creating, setCreating] = useState(false);
+
+  const removeLastLesson = (subjectId: string) => {
+    const last = lastLessonLog(subjectId, lessonLogs);
+    if (last) removeLessonLog(last.id);
+  };
   const [editing, setEditing] = useState<Subject | null>(null);
   const [detail, setDetail] = useState<Subject | null>(null);
 
@@ -120,15 +125,24 @@ export function SubjectsPage() {
                   <div className="text-[11px] text-ink-muted">faltam {st.remaining}</div>
                 </div>
 
-                {!st.completed && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    disabled={st.done === 0}
+                    onClick={() => removeLastLesson(s.id)}
+                    title="Remover a última aula registrada"
+                  >
+                    <Icon name="minus" size={14} />
+                  </button>
                   <button
                     className="btn btn-gold btn-sm"
+                    disabled={st.completed}
                     onClick={() => addLessonLog(s.id, toISO(), null)}
                     title="Registrar 1 aula concluída"
                   >
                     <Icon name="plus" size={14} /> aula
                   </button>
-                )}
+                </div>
               </div>
             );
           })}

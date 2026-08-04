@@ -62,8 +62,16 @@ create table if not exists public.subjects (
   notes text,
   active boolean not null default true,
   sort_order int not null default 0,
+  recurrence text not null default 'none' check (recurrence in ('none', 'fixed', 'once')),
+  days_of_week int[] not null default '{}',
+  study_date date,
   created_at timestamptz not null default now()
 );
+
+-- Se a tabela subjects já existia (versão anterior), garante as colunas de agenda:
+alter table public.subjects add column if not exists recurrence text not null default 'none';
+alter table public.subjects add column if not exists days_of_week int[] not null default '{}';
+alter table public.subjects add column if not exists study_date date;
 
 create table if not exists public.lesson_logs (
   id uuid primary key default gen_random_uuid(),

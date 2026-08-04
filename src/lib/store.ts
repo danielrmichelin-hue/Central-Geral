@@ -117,10 +117,22 @@ function seedDB(): LocalDB {
     mk({ module_id: byslug('pessoal'), title: 'Trocar lâmpada da cozinha', recurrence: 'once', date: toISO(), duration_min: 15 }),
   ];
   const intelectual = byslug('intelectual');
+  const mkSubj = (o: Partial<Subject> & { name: string; total_lessons: number }): Subject => ({
+    id: uid(),
+    module_id: intelectual,
+    color: null,
+    notes: null,
+    active: true,
+    sort_order: 0,
+    recurrence: 'none',
+    days_of_week: [],
+    study_date: null,
+    ...o,
+  });
   const subjects: Subject[] = [
-    { id: uid(), module_id: intelectual, name: 'Filosofia', total_lessons: 100, color: null, notes: null, active: true, sort_order: 1 },
-    { id: uid(), module_id: intelectual, name: 'História Geral', total_lessons: 80, color: null, notes: null, active: true, sort_order: 2 },
-    { id: uid(), module_id: intelectual, name: 'Inglês', total_lessons: 60, color: null, notes: null, active: true, sort_order: 3 },
+    mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 1, recurrence: 'fixed', days_of_week: [1, 3] }),
+    mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 2, recurrence: 'fixed', days_of_week: [2, 4] }),
+    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5] }),
   ];
   const today = toISO();
   const lessonLogs: LessonLog[] = [
@@ -248,6 +260,9 @@ class LocalStore implements Store {
       notes: s.notes ?? null,
       active: true,
       sort_order: db.subjects.length + 1,
+      recurrence: s.recurrence ?? 'none',
+      days_of_week: s.days_of_week ?? [],
+      study_date: s.study_date ?? null,
     };
     db.subjects.push(subj);
     writeDB(db);
@@ -399,6 +414,9 @@ class SupabaseStore implements Store {
       total_lessons: s.total_lessons,
       color: s.color ?? null,
       notes: s.notes ?? null,
+      recurrence: s.recurrence ?? 'none',
+      days_of_week: s.days_of_week ?? [],
+      study_date: s.study_date ?? null,
     };
     const { data, error } = await this.sb.from('subjects').insert(payload).select().single();
     if (error) throw error;

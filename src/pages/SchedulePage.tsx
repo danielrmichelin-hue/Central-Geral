@@ -1,14 +1,17 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { ActivityModal } from '../components/ActivityModal';
 import { Icon } from '../lib/icons';
 import { WD3, addDays, fmtShort, isToday, toISO, weekDays, weekdayOf } from '../lib/date';
 import { activitiesForDate } from '../lib/logic';
+import { subjectsForDate } from '../lib/subjects';
 import type { Activity } from '../lib/types';
 
 export function SchedulePage() {
-  const { modules, activities } = useData();
+  const { modules, activities, subjects } = useData();
+  const navigate = useNavigate();
   const [anchor, setAnchor] = useState(toISO());
   const [editing, setEditing] = useState<Activity | null>(null);
   const [creatingDay, setCreatingDay] = useState<number | null>(null);
@@ -51,6 +54,7 @@ export function SchedulePage() {
         {days.map((iso) => {
           const wd = weekdayOf(iso);
           const items = activitiesForDate(activities, iso);
+          const subs = subjectsForDate(subjects, iso);
           const today = isToday(iso);
           return (
             <div
@@ -82,7 +86,24 @@ export function SchedulePage() {
                     </button>
                   );
                 })}
-                {items.length === 0 && <div className="py-3 text-center text-[11px] text-faint">livre</div>}
+                {subs.map((s) => {
+                  const color = s.color || moduleOf(s.module_id || '')?.color || 'var(--gold)';
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => navigate('/materias')}
+                      className="flex w-full items-center gap-2 rounded-md border border-dashed border-line-strong bg-surface-2 px-2 py-1.5 text-left text-[12px] transition hover:bg-surface-3"
+                      title="Matéria — clique para abrir"
+                    >
+                      <Icon name="grad" size={12} style={{ color }} className="flex-shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">{s.name}</span>
+                      {s.recurrence === 'once' && <span className="text-[9px] text-gold">•</span>}
+                    </button>
+                  );
+                })}
+                {items.length === 0 && subs.length === 0 && (
+                  <div className="py-3 text-center text-[11px] text-faint">livre</div>
+                )}
               </div>
 
               <button
@@ -105,6 +126,9 @@ export function SchedulePage() {
         ))}
         <span className="inline-flex items-center gap-1.5">
           <span className="text-gold">•</span> pontual (só naquele dia)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Icon name="grad" size={13} /> matéria agendada
         </span>
       </div>
 
