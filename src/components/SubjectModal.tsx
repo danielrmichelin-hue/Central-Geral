@@ -41,14 +41,24 @@ export function SubjectModal({ subject, onClose }: Props) {
       days_of_week: recurrence === 'fixed' ? days : [],
       study_date: recurrence === 'once' ? studyDate : null,
     };
-    if (isNew) {
-      await addSubject(payload);
-      toast('Matéria criada', 'success');
-    } else {
-      await updateSubject(subject!.id, payload);
-      toast('Matéria atualizada', 'success');
+    try {
+      if (isNew) {
+        await addSubject(payload);
+        toast('Matéria criada', 'success');
+      } else {
+        await updateSubject(subject!.id, payload);
+        toast('Matéria atualizada', 'success');
+      }
+      onClose();
+    } catch (e) {
+      console.error('Erro ao salvar matéria:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      // Dica quando o banco ainda não tem as tabelas/colunas de matérias.
+      const hint = /column|relation|schema|does not exist|find the/i.test(msg)
+        ? ' — rode o SQL de configuração das Matérias no Supabase (veja a última mensagem do chat).'
+        : '';
+      toast('Não foi possível salvar' + hint, 'danger');
     }
-    onClose();
   };
 
   const remove = async () => {
