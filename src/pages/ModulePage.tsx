@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { ActivityModal } from '../components/ActivityModal';
 import { Icon } from '../lib/icons';
 import { WD3, fmtMin, fmtShort, toISO, weekdayOf } from '../lib/date';
+import { subjectStats } from '../lib/subjects';
 import type { Activity } from '../lib/types';
 
 export function ModulePage() {
   const { slug } = useParams();
-  const { modules, activities } = useData();
+  const navigate = useNavigate();
+  const { modules, activities, subjects, lessonLogs, addLessonLog } = useData();
   const [editing, setEditing] = useState<Activity | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -17,6 +19,10 @@ export function ModulePage() {
   const list = useMemo(
     () => activities.filter((a) => module && a.module_id === module.id && a.active),
     [activities, module],
+  );
+  const linkedSubjects = useMemo(
+    () => subjects.filter((s) => module && s.module_id === module.id && s.active),
+    [subjects, module],
   );
 
   if (!module) {
@@ -90,6 +96,63 @@ export function ModulePage() {
           <Icon name="plus" size={15} /> Nova atividade
         </button>
       </div>
+
+      {linkedSubjects.length > 0 && (
+        <div className="card mb-4">
+          <div className="card-title">
+            <span className="flex items-center gap-2">
+              Matérias <span className="font-mono text-faint">{linkedSubjects.length}</span>
+            </span>
+            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/materias')}>
+              Ver todas
+            </button>
+          </div>
+          {linkedSubjects.map((s) => {
+            const st = subjectStats(s, lessonLogs);
+            const color = s.color || module.color;
+            return (
+              <div key={s.id} className="flex flex-wrap items-center gap-3 border-b border-line py-3 last:border-none">
+                <button className="min-w-[140px] flex-1 text-left" onClick={() => navigate('/materias')}>
+                  <div className="flex items-center gap-2 font-medium">
+                    <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                    {s.name}
+                    {st.completed && (
+                      <span className="text-success">
+                        <Icon name="check" size={14} />
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-ink-muted">
+                    Aula {Math.min(st.done + 1, st.total)} de {st.total}
+                    {st.etaWeeks ? ` · termina em ~${st.etaWeeks} sem` : ''}
+                  </div>
+                </button>
+                <div className="w-[140px]">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                    <span
+                      className="block h-full rounded-full transition-[width] duration-500"
+                      style={{ width: `${st.pct}%`, background: st.completed ? 'var(--success)' : color }}
+                    />
+                  </div>
+                </div>
+                <div className="w-[64px] text-right">
+                  <div className="font-mono text-sm font-semibold tabular-nums">{st.pct}%</div>
+                  <div className="text-[11px] text-ink-muted">faltam {st.remaining}</div>
+                </div>
+                {!st.completed && (
+                  <button
+                    className="btn btn-gold btn-sm"
+                    onClick={() => addLessonLog(s.id, toISO(), null)}
+                    title="Registrar 1 aula"
+                  >
+                    <Icon name="plus" size={14} /> aula
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="card">
