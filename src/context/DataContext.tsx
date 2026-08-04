@@ -1,6 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { store, DEFAULT_MODULES } from '../lib/store';
-import type { Activity, BibleReading, Completion, Module, NewActivity } from '../lib/types';
+import type {
+  Activity,
+  BibleReading,
+  Completion,
+  LessonLog,
+  Module,
+  NewActivity,
+  NewSubject,
+  Subject,
+} from '../lib/types';
 import { useAuth } from './AuthContext';
 
 interface DataCtx {
@@ -8,6 +17,8 @@ interface DataCtx {
   activities: Activity[];
   completions: Completion[];
   bibleReading: BibleReading[];
+  subjects: Subject[];
+  lessonLogs: LessonLog[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -19,6 +30,11 @@ interface DataCtx {
   addModule: (m: Omit<Module, 'id' | 'created_at'>) => Promise<void>;
   updateModule: (id: string, patch: Partial<Module>) => Promise<void>;
   deleteModule: (id: string) => Promise<void>;
+  addSubject: (s: NewSubject) => Promise<void>;
+  updateSubject: (id: string, patch: Partial<Subject>) => Promise<void>;
+  deleteSubject: (id: string) => Promise<void>;
+  addLessonLog: (subjectId: string, date: string, durationMin: number | null) => Promise<void>;
+  removeLessonLog: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<DataCtx>(null as unknown as DataCtx);
@@ -30,6 +46,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [completions, setCompletions] = useState<Completion[]>([]);
   const [bibleReading, setBibleReading] = useState<BibleReading[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [lessonLogs, setLessonLogs] = useState<LessonLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,12 +65,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setModules(mods);
       setActivities(acts);
       setCompletions(comps);
-      // Leitura Bíblica é opcional: se a tabela ainda não existe no Supabase,
-      // isso NÃO pode derrubar o carregamento dos módulos e atividades.
+      // Tabelas opcionais (Leitura Bíblica, Matérias): se ainda não existem no
+      // Supabase, NÃO podem derrubar o carregamento dos módulos e atividades.
       try {
         setBibleReading(await store.listBibleReading());
       } catch {
         setBibleReading([]);
+      }
+      try {
+        const [subs, logs] = await Promise.all([store.listSubjects(), store.listLessonLogs()]);
+        setSubjects(subs);
+        setLessonLogs(logs);
+      } catch {
+        setSubjects([]);
+        setLessonLogs([]);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
@@ -68,6 +94,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setActivities([]);
       setCompletions([]);
       setBibleReading([]);
+      setSubjects([]);
+      setLessonLogs([]);
       setLoading(false);
     }
   }, [user, refresh]);
@@ -111,6 +139,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addSubject = async (s: NewSubject) => {
+    const created = await store.createSubject(s);
+    setSubjects((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+  };
+  const updateSubject = async (id: string, patch: Partial<Subject>) => {
+    setSubjects((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+    await store.updateSubject(id, patch);
+  };
+  const deleteSubject = async (id: string) => {
+    setSubjects((prev) => prev.filter((s) => s.id !== id));
+    setLessonLogs((prev) => prev.filter((l) => l.subject_id !== id));
+    await store.deleteSubject(id);
+  };
+  const addLessonLog = async (subjectId: string, date: string, durationMin: number | null) => {
+    const created = await store.addLessonLog(subjectId, date, durationMin);
+    setLessonLogs((prev) => [...prev, created]);
+  };
+  const removeLessonLog = async (id: string) => {
+    setLessonLogs((prev) => prev.filter((l) => l.id !== id));
+    await store.removeLessonLog(id);
+  };
+
   const addModule = async (m: Omit<Module, 'id' | 'created_at'>) => {
     const created = await store.createModule(m);
     setModules((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
@@ -132,6 +182,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         activities,
         completions,
         bibleReading,
+        subjects,
+        lessonLogs,
         loading,
         error,
         refresh,
@@ -143,6 +195,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addModule,
         updateModule,
         deleteModule,
+        addSubject,
+        updateSubject,
+        deleteSubject,
+        addLessonLog,
+        removeLessonLog,
       }}
     >
       {children}

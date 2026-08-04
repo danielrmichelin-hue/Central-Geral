@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
+import { PomodoroProvider } from './context/PomodoroContext';
 import { ToastProvider } from './components/Toast';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -8,6 +9,7 @@ import { Dashboard } from './pages/Dashboard';
 import { ModulePage } from './pages/ModulePage';
 import { SchedulePage } from './pages/SchedulePage';
 import { BiblePage } from './pages/BiblePage';
+import { SubjectsPage } from './pages/SubjectsPage';
 import { Settings } from './pages/Settings';
 
 function Splash() {
@@ -30,6 +32,7 @@ function AppRoutes() {
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="m/:slug" element={<ModulePage />} />
+        <Route path="materias" element={<SubjectsPage />} />
         <Route path="biblia" element={<BiblePage />} />
         <Route path="cronograma" element={<SchedulePage />} />
         <Route path="ajustes" element={<Settings />} />
@@ -45,7 +48,9 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <DataProvider>
-            <AppRoutes />
+            <PomodoroProvider>
+              <AppRoutes />
+            </PomodoroProvider>
           </DataProvider>
         </ToastProvider>
       </AuthProvider>
