@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons';
 import { useData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { computeStreak } from '../lib/logic';
+import { Pomodoro } from './Pomodoro';
 
 export function Layout() {
   const { modules, completions } = useData();
@@ -61,8 +62,9 @@ export function Layout() {
         {modules.map((m) => navItem(`/m/${m.slug}`, m.icon, m.name, m.color))}
 
         <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
-          Leitura
+          Estudos
         </div>
+        {navItem('/materias', 'grad', 'Matérias')}
         {navItem('/biblia', 'cross', 'Leitura Bíblica', 'var(--gold)')}
 
         <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
@@ -115,6 +117,8 @@ export function Layout() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      <Pomodoro />
     </div>
   );
 }

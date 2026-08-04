@@ -1,6 +1,15 @@
 import { supabase } from './supabase';
 import { toISO } from './date';
-import type { Activity, BibleReading, Completion, Module, NewActivity } from './types';
+import type {
+  Activity,
+  BibleReading,
+  Completion,
+  LessonLog,
+  Module,
+  NewActivity,
+  NewSubject,
+  Subject,
+} from './types';
 
 export interface Store {
   listModules(): Promise<Module[]>;
@@ -20,6 +29,15 @@ export interface Store {
   listBibleReading(): Promise<BibleReading[]>;
   addBibleChapter(bookId: string, chapter: number): Promise<BibleReading>;
   removeBibleChapter(bookId: string, chapter: number): Promise<void>;
+
+  listSubjects(): Promise<Subject[]>;
+  createSubject(s: NewSubject): Promise<Subject>;
+  updateSubject(id: string, patch: Partial<Subject>): Promise<void>;
+  deleteSubject(id: string): Promise<void>;
+
+  listLessonLogs(): Promise<LessonLog[]>;
+  addLessonLog(subjectId: string, date: string, durationMin: number | null): Promise<LessonLog>;
+  removeLessonLog(id: string): Promise<void>;
 }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -43,6 +61,8 @@ interface LocalDB {
   activities: Activity[];
   completions: Completion[];
   bibleReading: BibleReading[];
+  subjects: Subject[];
+  lessonLogs: LessonLog[];
 }
 
 function readDB(): LocalDB {
@@ -50,7 +70,10 @@ function readDB(): LocalDB {
     const raw = localStorage.getItem(LS_KEY);
     if (raw) {
       const db = JSON.parse(raw) as LocalDB;
-      if (!db.bibleReading) db.bibleReading = []; // migração leve
+      // migrações leves (dados antigos podem não ter campos novos)
+      if (!db.bibleReading) db.bibleReading = [];
+      if (!db.subjects) db.subjects = [];
+      if (!db.lessonLogs) db.lessonLogs = [];
       return db;
     }
   } catch {
@@ -93,7 +116,20 @@ function seedDB(): LocalDB {
     // Pontual — exemplo do dia (igual ao caso da lâmpada)
     mk({ module_id: byslug('pessoal'), title: 'Trocar lâmpada da cozinha', recurrence: 'once', date: toISO(), duration_min: 15 }),
   ];
-  const db: LocalDB = { modules, activities, completions: [], bibleReading: [] };
+  const intelectual = byslug('intelectual');
+  const subjects: Subject[] = [
+    { id: uid(), module_id: intelectual, name: 'Filosofia', total_lessons: 100, color: null, notes: null, active: true, sort_order: 1 },
+    { id: uid(), module_id: intelectual, name: 'História Geral', total_lessons: 80, color: null, notes: null, active: true, sort_order: 2 },
+    { id: uid(), module_id: intelectual, name: 'Inglês', total_lessons: 60, color: null, notes: null, active: true, sort_order: 3 },
+  ];
+  const today = toISO();
+  const lessonLogs: LessonLog[] = [
+    { id: uid(), subject_id: subjects[0].id, date: today, duration_min: 50 },
+    { id: uid(), subject_id: subjects[0].id, date: today, duration_min: 45 },
+    { id: uid(), subject_id: subjects[1].id, date: today, duration_min: 60 },
+  ];
+
+  const db: LocalDB = { modules, activities, completions: [], bibleReading: [], subjects, lessonLogs };
   writeDB(db);
   return db;
 }
@@ -195,6 +231,54 @@ class LocalStore implements Store {
   async removeBibleChapter(bookId: string, chapter: number) {
     const db = readDB();
     db.bibleReading = db.bibleReading.filter((x) => !(x.book_id === bookId && x.chapter === chapter));
+    writeDB(db);
+  }
+
+  async listSubjects() {
+    return readDB().subjects.slice().sort((a, b) => a.sort_order - b.sort_order);
+  }
+  async createSubject(s: NewSubject) {
+    const db = readDB();
+    const subj: Subject = {
+      id: uid(),
+      module_id: s.module_id ?? null,
+      name: s.name,
+      total_lessons: s.total_lessons,
+      color: s.color ?? null,
+      notes: s.notes ?? null,
+      active: true,
+      sort_order: db.subjects.length + 1,
+    };
+    db.subjects.push(subj);
+    writeDB(db);
+    return subj;
+  }
+  async updateSubject(id: string, patch: Partial<Subject>) {
+    const db = readDB();
+    const i = db.subjects.findIndex((x) => x.id === id);
+    if (i >= 0) db.subjects[i] = { ...db.subjects[i], ...patch };
+    writeDB(db);
+  }
+  async deleteSubject(id: string) {
+    const db = readDB();
+    db.subjects = db.subjects.filter((x) => x.id !== id);
+    db.lessonLogs = db.lessonLogs.filter((l) => l.subject_id !== id);
+    writeDB(db);
+  }
+
+  async listLessonLogs() {
+    return readDB().lessonLogs;
+  }
+  async addLessonLog(subjectId: string, date: string, durationMin: number | null) {
+    const db = readDB();
+    const log: LessonLog = { id: uid(), subject_id: subjectId, date, duration_min: durationMin };
+    db.lessonLogs.push(log);
+    writeDB(db);
+    return log;
+  }
+  async removeLessonLog(id: string) {
+    const db = readDB();
+    db.lessonLogs = db.lessonLogs.filter((l) => l.id !== id);
     writeDB(db);
   }
 }
@@ -300,6 +384,51 @@ class SupabaseStore implements Store {
       .delete()
       .eq('book_id', bookId)
       .eq('chapter', chapter);
+    if (error) throw error;
+  }
+
+  async listSubjects() {
+    const { data, error } = await this.sb.from('subjects').select('*').order('sort_order');
+    if (error) throw error;
+    return (data ?? []) as Subject[];
+  }
+  async createSubject(s: NewSubject) {
+    const payload = {
+      module_id: s.module_id ?? null,
+      name: s.name,
+      total_lessons: s.total_lessons,
+      color: s.color ?? null,
+      notes: s.notes ?? null,
+    };
+    const { data, error } = await this.sb.from('subjects').insert(payload).select().single();
+    if (error) throw error;
+    return data as Subject;
+  }
+  async updateSubject(id: string, patch: Partial<Subject>) {
+    const { error } = await this.sb.from('subjects').update(patch).eq('id', id);
+    if (error) throw error;
+  }
+  async deleteSubject(id: string) {
+    const { error } = await this.sb.from('subjects').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async listLessonLogs() {
+    const { data, error } = await this.sb.from('lesson_logs').select('*');
+    if (error) throw error;
+    return (data ?? []) as LessonLog[];
+  }
+  async addLessonLog(subjectId: string, date: string, durationMin: number | null) {
+    const { data, error } = await this.sb
+      .from('lesson_logs')
+      .insert({ subject_id: subjectId, date, duration_min: durationMin })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as LessonLog;
+  }
+  async removeLessonLog(id: string) {
+    const { error } = await this.sb.from('lesson_logs').delete().eq('id', id);
     if (error) throw error;
   }
 }

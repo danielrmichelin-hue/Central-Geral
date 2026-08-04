@@ -57,6 +57,39 @@ export interface BibleReading {
   created_at?: string;
 }
 
+/** Uma matéria/disciplina com cronograma de aulas. */
+export interface Subject {
+  id: string;
+  user_id?: string;
+  /** Vínculo opcional com um módulo (usado para cor/agrupar). */
+  module_id: string | null;
+  name: string;
+  total_lessons: number;
+  color: string | null;
+  notes: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at?: string;
+}
+
+export interface NewSubject {
+  module_id?: string | null;
+  name: string;
+  total_lessons: number;
+  color?: string | null;
+  notes?: string | null;
+}
+
+/** Registro de uma aula concluída (com duração opcional, ex: do Pomodoro). */
+export interface LessonLog {
+  id: string;
+  user_id?: string;
+  subject_id: string;
+  date: string;
+  duration_min: number | null;
+  created_at?: string;
+}
+
 export interface NewActivity {
   module_id: string;
   title: string;
