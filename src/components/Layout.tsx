@@ -65,6 +65,12 @@ export function Layout() {
           Estudos
         </div>
         {navItem('/materias', 'grad', 'Matérias')}
+        {navItem('/carreira', 'briefcase', 'Carreira')}
+
+        <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
+          Leitura
+        </div>
+        {navItem('/leitura-dirigida', 'book', 'Leitura Dirigida')}
         {navItem('/biblia', 'cross', 'Leitura Bíblica', 'var(--gold)')}
 
         <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">

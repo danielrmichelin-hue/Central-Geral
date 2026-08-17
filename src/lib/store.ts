@@ -3,10 +3,12 @@ import { toISO } from './date';
 import type {
   Activity,
   BibleReading,
+  Book,
   Completion,
   LessonLog,
   Module,
   NewActivity,
+  NewBook,
   NewSubject,
   Subject,
 } from './types';
@@ -38,6 +40,11 @@ export interface Store {
   listLessonLogs(): Promise<LessonLog[]>;
   addLessonLog(subjectId: string, date: string, durationMin: number | null): Promise<LessonLog>;
   removeLessonLog(id: string): Promise<void>;
+
+  listBooks(): Promise<Book[]>;
+  createBook(b: NewBook): Promise<Book>;
+  updateBook(id: string, patch: Partial<Book>): Promise<void>;
+  deleteBook(id: string): Promise<void>;
 }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -63,6 +70,7 @@ interface LocalDB {
   bibleReading: BibleReading[];
   subjects: Subject[];
   lessonLogs: LessonLog[];
+  books: Book[];
 }
 
 function readDB(): LocalDB {
@@ -74,6 +82,8 @@ function readDB(): LocalDB {
       if (!db.bibleReading) db.bibleReading = [];
       if (!db.subjects) db.subjects = [];
       if (!db.lessonLogs) db.lessonLogs = [];
+      if (!db.books) db.books = [];
+      for (const s of db.subjects) if (!s.kind) s.kind = 'estudo';
       return db;
     }
   } catch {
@@ -117,8 +127,10 @@ function seedDB(): LocalDB {
     mk({ module_id: byslug('pessoal'), title: 'Trocar lâmpada da cozinha', recurrence: 'once', date: toISO(), duration_min: 15 }),
   ];
   const intelectual = byslug('intelectual');
+  const profissional = byslug('profissional');
   const mkSubj = (o: Partial<Subject> & { name: string; total_lessons: number }): Subject => ({
     id: uid(),
+    kind: 'estudo',
     module_id: intelectual,
     color: null,
     notes: null,
@@ -133,6 +145,8 @@ function seedDB(): LocalDB {
     mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 1, recurrence: 'fixed', days_of_week: [1, 3] }),
     mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 2, recurrence: 'fixed', days_of_week: [2, 4] }),
     mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5] }),
+    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', module_id: profissional, recurrence: 'fixed', days_of_week: [2, 4] }),
+    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', module_id: profissional }),
   ];
   const today = toISO();
   const lessonLogs: LessonLog[] = [
@@ -141,7 +155,13 @@ function seedDB(): LocalDB {
     { id: uid(), subject_id: subjects[1].id, date: today, duration_min: 60 },
   ];
 
-  const db: LocalDB = { modules, activities, completions: [], bibleReading: [], subjects, lessonLogs };
+  const books: Book[] = [
+    { id: uid(), title: 'A República', author: 'Platão', total_chapters: 10, chapters_read: 4, notes: null, active: true, sort_order: 1 },
+    { id: uid(), title: 'Hábitos Atômicos', author: 'James Clear', total_chapters: 20, chapters_read: 20, notes: null, active: true, sort_order: 2 },
+    { id: uid(), title: 'Sapiens', author: 'Y. N. Harari', total_chapters: 20, chapters_read: 6, notes: null, active: true, sort_order: 3 },
+  ];
+
+  const db: LocalDB = { modules, activities, completions: [], bibleReading: [], subjects, lessonLogs, books };
   writeDB(db);
   return db;
 }
@@ -253,6 +273,7 @@ class LocalStore implements Store {
     const db = readDB();
     const subj: Subject = {
       id: uid(),
+      kind: s.kind ?? 'estudo',
       module_id: s.module_id ?? null,
       name: s.name,
       total_lessons: s.total_lessons,
@@ -294,6 +315,37 @@ class LocalStore implements Store {
   async removeLessonLog(id: string) {
     const db = readDB();
     db.lessonLogs = db.lessonLogs.filter((l) => l.id !== id);
+    writeDB(db);
+  }
+
+  async listBooks() {
+    return readDB().books.slice().sort((a, b) => a.sort_order - b.sort_order);
+  }
+  async createBook(b: NewBook) {
+    const db = readDB();
+    const book: Book = {
+      id: uid(),
+      title: b.title,
+      author: b.author ?? null,
+      total_chapters: b.total_chapters,
+      chapters_read: b.chapters_read ?? 0,
+      notes: b.notes ?? null,
+      active: true,
+      sort_order: db.books.length + 1,
+    };
+    db.books.push(book);
+    writeDB(db);
+    return book;
+  }
+  async updateBook(id: string, patch: Partial<Book>) {
+    const db = readDB();
+    const i = db.books.findIndex((x) => x.id === id);
+    if (i >= 0) db.books[i] = { ...db.books[i], ...patch };
+    writeDB(db);
+  }
+  async deleteBook(id: string) {
+    const db = readDB();
+    db.books = db.books.filter((x) => x.id !== id);
     writeDB(db);
   }
 }
@@ -409,6 +461,7 @@ class SupabaseStore implements Store {
   }
   async createSubject(s: NewSubject) {
     const payload = {
+      kind: s.kind ?? 'estudo',
       module_id: s.module_id ?? null,
       name: s.name,
       total_lessons: s.total_lessons,
@@ -447,6 +500,32 @@ class SupabaseStore implements Store {
   }
   async removeLessonLog(id: string) {
     const { error } = await this.sb.from('lesson_logs').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async listBooks() {
+    const { data, error } = await this.sb.from('books').select('*').order('sort_order');
+    if (error) throw error;
+    return (data ?? []) as Book[];
+  }
+  async createBook(b: NewBook) {
+    const payload = {
+      title: b.title,
+      author: b.author ?? null,
+      total_chapters: b.total_chapters,
+      chapters_read: b.chapters_read ?? 0,
+      notes: b.notes ?? null,
+    };
+    const { data, error } = await this.sb.from('books').insert(payload).select().single();
+    if (error) throw error;
+    return data as Book;
+  }
+  async updateBook(id: string, patch: Partial<Book>) {
+    const { error } = await this.sb.from('books').update(patch).eq('id', id);
+    if (error) throw error;
+  }
+  async deleteBook(id: string) {
+    const { error } = await this.sb.from('books').delete().eq('id', id);
     if (error) throw error;
   }
 }

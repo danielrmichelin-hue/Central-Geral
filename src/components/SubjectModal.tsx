@@ -3,14 +3,15 @@ import { Modal, Field } from './Modal';
 import { useData } from '../context/DataContext';
 import { useToast } from './Toast';
 import { WD3, toISO } from '../lib/date';
-import type { Subject, SubjectSchedule } from '../lib/types';
+import type { Subject, SubjectKind, SubjectSchedule } from '../lib/types';
 
 interface Props {
   subject?: Subject | null;
+  kind?: SubjectKind;
   onClose: () => void;
 }
 
-export function SubjectModal({ subject, onClose }: Props) {
+export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
   const { modules, addSubject, updateSubject, deleteSubject } = useData();
   const toast = useToast();
   const isNew = !subject;
@@ -33,6 +34,7 @@ export function SubjectModal({ subject, onClose }: Props) {
       return;
     }
     const payload = {
+      kind: subject?.kind ?? kind,
       name: name.trim(),
       module_id: moduleId || null,
       total_lessons: Math.max(1, Number(total) || 1),
@@ -69,9 +71,11 @@ export function SubjectModal({ subject, onClose }: Props) {
     onClose();
   };
 
+  const noun = (subject?.kind ?? kind) === 'carreira' ? 'curso' : 'matéria';
+
   return (
     <Modal
-      title={isNew ? 'Nova matéria' : 'Editar matéria'}
+      title={isNew ? `Nov${noun === 'curso' ? 'o' : 'a'} ${noun}` : `Editar ${noun}`}
       onClose={onClose}
       footer={
         <>
@@ -89,12 +93,12 @@ export function SubjectModal({ subject, onClose }: Props) {
         </>
       }
     >
-      <Field label="Nome da matéria">
+      <Field label="Nome">
         <input
           className="inp"
           value={name}
           autoFocus
-          placeholder="Ex: Filosofia, Cálculo I, Direito Constitucional..."
+          placeholder={noun === 'curso' ? 'Ex: Vendas, Excel avançado, Liderança...' : 'Ex: Filosofia, Cálculo I, Direito...'}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && save()}
         />

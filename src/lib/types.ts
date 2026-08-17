@@ -58,11 +58,14 @@ export interface BibleReading {
 }
 
 export type SubjectSchedule = 'none' | 'fixed' | 'once';
+export type SubjectKind = 'estudo' | 'carreira';
 
-/** Uma matéria/disciplina com cronograma de aulas. */
+/** Uma matéria/disciplina (ou curso de carreira) com cronograma de aulas. */
 export interface Subject {
   id: string;
   user_id?: string;
+  /** Área: 'estudo' (Matérias) ou 'carreira' (Cursos). */
+  kind: SubjectKind;
   /** Vínculo opcional com um módulo (usado para cor/agrupar). */
   module_id: string | null;
   name: string;
@@ -81,6 +84,7 @@ export interface Subject {
 }
 
 export interface NewSubject {
+  kind?: SubjectKind;
   module_id?: string | null;
   name: string;
   total_lessons: number;
@@ -89,6 +93,28 @@ export interface NewSubject {
   recurrence?: SubjectSchedule;
   days_of_week?: number[];
   study_date?: string | null;
+}
+
+/** Um livro da leitura dirigida (progresso por capítulos). */
+export interface Book {
+  id: string;
+  user_id?: string;
+  title: string;
+  author: string | null;
+  total_chapters: number;
+  chapters_read: number;
+  notes: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at?: string;
+}
+
+export interface NewBook {
+  title: string;
+  author?: string | null;
+  total_chapters: number;
+  chapters_read?: number;
+  notes?: string | null;
 }
 
 /** Registro de uma aula concluída (com duração opcional, ex: do Pomodoro). */
