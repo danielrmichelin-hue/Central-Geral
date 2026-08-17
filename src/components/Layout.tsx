@@ -66,6 +66,7 @@ export function Layout() {
         </div>
         {navItem('/materias', 'grad', 'Matérias')}
         {navItem('/carreira', 'briefcase', 'Carreira')}
+        {navItem('/roadmap', 'calendar', 'Roadmap')}
 
         <div className="px-3 pb-1.5 pt-3.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-faint">
           Leitura

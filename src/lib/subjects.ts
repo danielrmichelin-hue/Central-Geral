@@ -1,9 +1,14 @@
 import type { LessonLog, Subject } from './types';
-import { addDays, pct, toISO, weekdayOf } from './date';
+import { addDays, addWeeks, pct, toISO, weekdayOf, weeksBetween } from './date';
 
-/** A matéria tem estudo agendado nesta data (ISO)? */
+/** Máximo de matérias em foco simultâneas. */
+export const FOCUS_LIMIT = 3;
+/** Ritmo assumido (aulas/semana) quando não há meta nem histórico — usado no roadmap. */
+export const DEFAULT_WEEKLY = 5;
+
+/** A matéria tem estudo agendado nesta data (ISO)? Só conta as que estão em foco. */
 export function subjectOnDate(s: Subject, iso: string): boolean {
-  if (!s.active) return false;
+  if (!s.active || s.status !== 'foco') return false;
   if (s.recurrence === 'fixed') return s.days_of_week.includes(weekdayOf(iso));
   if (s.recurrence === 'once') return s.study_date === iso;
   return false;
@@ -118,6 +123,126 @@ export function lastLessonLog(subjectId: string, logs: LessonLog[]): LessonLog |
     return withTs.reduce((a, b) => ((a.created_at as string) > (b.created_at as string) ? a : b));
   }
   return mine[mine.length - 1];
+}
+
+/** Aulas registradas nesta semana (últimos 7 dias) para a matéria. */
+export function lessonsThisWeek(subjectId: string, logs: LessonLog[]): number {
+  const weekAgo = addDays(toISO(), -6);
+  return logs.filter((l) => l.subject_id === subjectId && l.date >= weekAgo).length;
+}
+
+export type Farol = 'sem-meta' | 'adiantado' | 'no-ritmo' | 'atrasado';
+
+export interface SubjectPlan {
+  /** aulas/semana que a meta exige (de weekly_goal ou derivado da data-alvo) */
+  requiredWeekly: number | null;
+  /** previsão de término (ISO) no ritmo atual/meta */
+  projectedEnd: string | null;
+  /** ritmo real recente (aulas/semana) */
+  pace: number;
+  farol: Farol;
+  weekDone: number;
+}
+
+/**
+ * Plano de conclusão da matéria combinando meta de ritmo (weekly_goal) e/ou
+ * data-alvo (target_date) com o ritmo real recente.
+ */
+export function subjectPlan(subject: Subject, logs: LessonLog[]): SubjectPlan {
+  const st = subjectStats(subject, logs);
+  const remaining = st.remaining;
+  const today = toISO();
+
+  // ritmo exigido: prioridade para weekly_goal; senão deriva da data-alvo
+  let requiredWeekly: number | null = subject.weekly_goal ?? null;
+  if (!requiredWeekly && subject.target_date && remaining > 0) {
+    const wks = Math.max(0.2, weeksBetween(today, subject.target_date));
+    requiredWeekly = Math.ceil(remaining / wks);
+  }
+
+  // previsão de término
+  let projectedEnd: string | null = null;
+  if (remaining <= 0) {
+    projectedEnd = st.lastDate;
+  } else {
+    const rate = requiredWeekly ?? (st.pace > 0 ? st.pace : null);
+    if (rate && rate > 0) projectedEnd = addWeeks(today, remaining / rate);
+    else if (subject.target_date) projectedEnd = subject.target_date;
+  }
+
+  // farol: compara ritmo real com o exigido
+  let farol: Farol = 'sem-meta';
+  if (requiredWeekly && requiredWeekly > 0 && remaining > 0) {
+    if (st.pace >= requiredWeekly) farol = 'adiantado';
+    else if (st.pace >= requiredWeekly * 0.8) farol = 'no-ritmo';
+    else farol = 'atrasado';
+  }
+
+  return {
+    requiredWeekly,
+    projectedEnd,
+    pace: st.pace,
+    farol,
+    weekDone: lessonsThisWeek(subject.id, logs),
+  };
+}
+
+export interface RoadmapItem {
+  subject: Subject;
+  startISO: string;
+  endISO: string;
+  weeks: number;
+  lane: number;
+}
+
+/**
+ * Projeta a linha do tempo dos ciclos: matérias em foco começam agora; as da
+ * fila entram numa das `lanes` trilhas assim que uma vaga abre. O ritmo de cada
+ * matéria é weekly_goal → ritmo real → DEFAULT_WEEKLY (nessa ordem).
+ */
+export function buildRoadmap(
+  subjects: Subject[],
+  logs: LessonLog[],
+  lanes = FOCUS_LIMIT,
+): { items: RoadmapItem[]; endISO: string | null } {
+  const today = toISO();
+  const weeksFor = (s: Subject) => {
+    const st = subjectStats(s, logs);
+    if (st.remaining <= 0) return 0;
+    const rate = s.weekly_goal ?? (st.pace > 0 ? st.pace : DEFAULT_WEEKLY);
+    return Math.max(0.2, st.remaining / Math.max(0.5, rate));
+  };
+
+  // ordena: em foco primeiro, depois fila — ambos por sort_order
+  const rank = (s: Subject) => (s.status === 'foco' ? 0 : 1);
+  const queue = subjects
+    .filter((s) => s.active && s.status !== 'concluida')
+    .sort((a, b) => rank(a) - rank(b) || a.sort_order - b.sort_order);
+
+  // cada trilha guarda a data (em semanas a partir de hoje) em que fica livre
+  const laneFreeAt = Array.from({ length: Math.max(1, lanes) }, () => 0);
+  const items: RoadmapItem[] = [];
+  let maxWeeks = 0;
+
+  for (const s of queue) {
+    const dur = weeksFor(s);
+    // escolhe a trilha que libera mais cedo
+    let lane = 0;
+    for (let i = 1; i < laneFreeAt.length; i++) if (laneFreeAt[i] < laneFreeAt[lane]) lane = i;
+    const startW = laneFreeAt[lane];
+    const endW = startW + dur;
+    laneFreeAt[lane] = endW;
+    maxWeeks = Math.max(maxWeeks, endW);
+    items.push({
+      subject: s,
+      startISO: addWeeks(today, startW),
+      endISO: addWeeks(today, endW),
+      weeks: dur,
+      lane,
+    });
+  }
+
+  return { items, endISO: items.length ? addWeeks(today, maxWeeks) : null };
 }
 
 /** Duração média de uma aula em minutos (para prever tempo restante). */

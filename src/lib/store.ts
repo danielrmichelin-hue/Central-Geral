@@ -83,7 +83,12 @@ function readDB(): LocalDB {
       if (!db.subjects) db.subjects = [];
       if (!db.lessonLogs) db.lessonLogs = [];
       if (!db.books) db.books = [];
-      for (const s of db.subjects) if (!s.kind) s.kind = 'estudo';
+      for (const s of db.subjects) {
+        if (!s.kind) s.kind = 'estudo';
+        if (!s.status) s.status = 'fila';
+        if (s.weekly_goal === undefined) s.weekly_goal = null;
+        if (s.target_date === undefined) s.target_date = null;
+      }
       return db;
     }
   } catch {
@@ -131,6 +136,7 @@ function seedDB(): LocalDB {
   const mkSubj = (o: Partial<Subject> & { name: string; total_lessons: number }): Subject => ({
     id: uid(),
     kind: 'estudo',
+    status: 'fila',
     module_id: intelectual,
     color: null,
     notes: null,
@@ -139,14 +145,19 @@ function seedDB(): LocalDB {
     recurrence: 'none',
     days_of_week: [],
     study_date: null,
+    weekly_goal: null,
+    target_date: null,
     ...o,
   });
   const subjects: Subject[] = [
-    mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 1, recurrence: 'fixed', days_of_week: [1, 3] }),
-    mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 2, recurrence: 'fixed', days_of_week: [2, 4] }),
-    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5] }),
-    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', module_id: profissional, recurrence: 'fixed', days_of_week: [2, 4] }),
-    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', module_id: profissional }),
+    mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 1, status: 'foco', recurrence: 'fixed', days_of_week: [1, 3], weekly_goal: 5 }),
+    mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 2, status: 'foco', recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 4 }),
+    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, status: 'foco', recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5], weekly_goal: 5 }),
+    mkSubj({ name: 'Geografia', total_lessons: 70, sort_order: 4, status: 'fila' }),
+    mkSubj({ name: 'Redação', total_lessons: 40, sort_order: 5, status: 'fila' }),
+    mkSubj({ name: 'Latim', total_lessons: 50, sort_order: 6, status: 'concluida' }),
+    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', status: 'foco', module_id: profissional, recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 3 }),
+    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', status: 'fila', module_id: profissional }),
   ];
   const today = toISO();
   const lessonLogs: LessonLog[] = [
@@ -274,6 +285,7 @@ class LocalStore implements Store {
     const subj: Subject = {
       id: uid(),
       kind: s.kind ?? 'estudo',
+      status: s.status ?? 'fila',
       module_id: s.module_id ?? null,
       name: s.name,
       total_lessons: s.total_lessons,
@@ -284,6 +296,8 @@ class LocalStore implements Store {
       recurrence: s.recurrence ?? 'none',
       days_of_week: s.days_of_week ?? [],
       study_date: s.study_date ?? null,
+      weekly_goal: s.weekly_goal ?? null,
+      target_date: s.target_date ?? null,
     };
     db.subjects.push(subj);
     writeDB(db);
@@ -462,6 +476,7 @@ class SupabaseStore implements Store {
   async createSubject(s: NewSubject) {
     const payload = {
       kind: s.kind ?? 'estudo',
+      status: s.status ?? 'fila',
       module_id: s.module_id ?? null,
       name: s.name,
       total_lessons: s.total_lessons,
@@ -470,6 +485,8 @@ class SupabaseStore implements Store {
       recurrence: s.recurrence ?? 'none',
       days_of_week: s.days_of_week ?? [],
       study_date: s.study_date ?? null,
+      weekly_goal: s.weekly_goal ?? null,
+      target_date: s.target_date ?? null,
     };
     const { data, error } = await this.sb.from('subjects').insert(payload).select().single();
     if (error) throw error;

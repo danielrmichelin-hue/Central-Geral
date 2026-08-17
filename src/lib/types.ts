@@ -59,6 +59,8 @@ export interface BibleReading {
 
 export type SubjectSchedule = 'none' | 'fixed' | 'once';
 export type SubjectKind = 'estudo' | 'carreira';
+/** Fase no ciclo de foco: em foco agora, na fila (backlog) ou concluída. */
+export type SubjectStatus = 'foco' | 'fila' | 'concluida';
 
 /** Uma matéria/disciplina (ou curso de carreira) com cronograma de aulas. */
 export interface Subject {
@@ -66,6 +68,8 @@ export interface Subject {
   user_id?: string;
   /** Área: 'estudo' (Matérias) ou 'carreira' (Cursos). */
   kind: SubjectKind;
+  /** Fase no ciclo de foco. */
+  status: SubjectStatus;
   /** Vínculo opcional com um módulo (usado para cor/agrupar). */
   module_id: string | null;
   name: string;
@@ -80,11 +84,16 @@ export interface Subject {
   days_of_week: number[];
   /** Para 'once': data 'YYYY-MM-DD'. */
   study_date: string | null;
+  /** Meta de ritmo: aulas por semana (opcional). */
+  weekly_goal: number | null;
+  /** Meta por data: terminar até 'YYYY-MM-DD' (opcional). */
+  target_date: string | null;
   created_at?: string;
 }
 
 export interface NewSubject {
   kind?: SubjectKind;
+  status?: SubjectStatus;
   module_id?: string | null;
   name: string;
   total_lessons: number;
@@ -93,6 +102,8 @@ export interface NewSubject {
   recurrence?: SubjectSchedule;
   days_of_week?: number[];
   study_date?: string | null;
+  weekly_goal?: number | null;
+  target_date?: string | null;
 }
 
 /** Um livro da leitura dirigida (progresso por capítulos). */

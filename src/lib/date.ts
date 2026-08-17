@@ -70,6 +70,25 @@ export function weekDays(iso: string): string[] {
   });
 }
 
+export function addWeeks(iso: string, n: number): string {
+  return addDays(iso, Math.round(n * 7));
+}
+
+export function daysBetween(aISO: string, bISO: string): number {
+  return Math.round((parseISO(bISO).getTime() - parseISO(aISO).getTime()) / 86400000);
+}
+
+/** Semanas (fracionárias) entre duas datas. */
+export function weeksBetween(aISO: string, bISO: string): number {
+  return daysBetween(aISO, bISO) / 7;
+}
+
+/** 'ago/26' — mês abreviado + ano de 2 dígitos. */
+export function fmtMonthYear(iso: string): string {
+  const d = parseISO(iso);
+  return `${MES3[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+}
+
 export function clamp(n: number, a: number, b: number): number {
   return Math.max(a, Math.min(b, n));
 }

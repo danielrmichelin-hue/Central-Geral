@@ -6,11 +6,11 @@ import { ActivityModal } from '../components/ActivityModal';
 import { Icon } from '../lib/icons';
 import { WD3, addDays, fmtShort, isToday, toISO, weekDays, weekdayOf } from '../lib/date';
 import { activitiesForDate } from '../lib/logic';
-import { subjectsForDate } from '../lib/subjects';
+import { lessonsThisWeek, subjectPlan, subjectsForDate } from '../lib/subjects';
 import type { Activity } from '../lib/types';
 
 export function SchedulePage() {
-  const { modules, activities, subjects } = useData();
+  const { modules, activities, subjects, lessonLogs } = useData();
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState(toISO());
   const [editing, setEditing] = useState<Activity | null>(null);
@@ -18,6 +18,9 @@ export function SchedulePage() {
 
   const days = useMemo(() => weekDays(anchor), [anchor]);
   const moduleOf = (id: string) => modules.find((m) => m.id === id);
+  const colorOfSubject = (s: (typeof subjects)[number]) =>
+    s.color || (s.module_id ? moduleOf(s.module_id)?.color : undefined) || 'var(--gold)';
+  const focoWithGoal = subjects.filter((s) => s.status === 'foco' && subjectPlan(s, lessonLogs).requiredWeekly);
 
   return (
     <>
@@ -49,6 +52,44 @@ export function SchedulePage() {
           </button>
         </div>
       </div>
+
+      {focoWithGoal.length > 0 && (
+        <div className="card mb-4">
+          <div className="card-title">
+            <span className="flex items-center gap-2">
+              <Icon name="target" size={15} style={{ color: 'var(--gold)' }} />
+              Metas desta semana
+            </span>
+          </div>
+          <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            {focoWithGoal.map((s) => {
+              const goal = subjectPlan(s, lessonLogs).requiredWeekly || 0;
+              const doneW = lessonsThisWeek(s.id, lessonLogs);
+              const color = colorOfSubject(s);
+              const hit = doneW >= goal;
+              return (
+                <button key={s.id} className="text-left" onClick={() => navigate('/materias')}>
+                  <div className="mb-1 flex items-center justify-between text-[13px]">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+                      {s.name}
+                    </span>
+                    <span className={`font-mono text-xs ${hit ? 'text-success' : 'text-ink-muted'}`}>
+                      {doneW}/{goal} {hit ? '✓' : ''}
+                    </span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                    <span
+                      className="block h-full rounded-full transition-[width] duration-500"
+                      style={{ width: `${Math.min(100, (doneW / goal) * 100)}%`, background: hit ? 'var(--success)' : color }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((iso) => {
