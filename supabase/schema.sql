@@ -55,6 +55,7 @@ create table if not exists public.bible_reading (
 create table if not exists public.subjects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  kind text not null default 'estudo' check (kind in ('estudo', 'carreira')),
   module_id uuid references public.modules (id) on delete set null,
   name text not null,
   total_lessons int not null default 40,
@@ -68,10 +69,24 @@ create table if not exists public.subjects (
   created_at timestamptz not null default now()
 );
 
--- Se a tabela subjects já existia (versão anterior), garante as colunas de agenda:
+-- Se a tabela subjects já existia (versão anterior), garante as colunas novas:
+alter table public.subjects add column if not exists kind text not null default 'estudo';
 alter table public.subjects add column if not exists recurrence text not null default 'none';
 alter table public.subjects add column if not exists days_of_week int[] not null default '{}';
 alter table public.subjects add column if not exists study_date date;
+
+create table if not exists public.books (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title text not null,
+  author text,
+  total_chapters int not null default 10,
+  chapters_read int not null default 0,
+  notes text,
+  active boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now()
+);
 
 create table if not exists public.lesson_logs (
   id uuid primary key default gen_random_uuid(),
@@ -90,6 +105,7 @@ create index if not exists bible_reading_user_idx on public.bible_reading (user_
 create index if not exists subjects_user_idx on public.subjects (user_id);
 create index if not exists lesson_logs_subject_idx on public.lesson_logs (subject_id);
 create index if not exists lesson_logs_user_idx on public.lesson_logs (user_id);
+create index if not exists books_user_idx on public.books (user_id);
 
 -- ---------- Row Level Security ----------
 alter table public.modules enable row level security;
@@ -98,6 +114,7 @@ alter table public.completions enable row level security;
 alter table public.bible_reading enable row level security;
 alter table public.subjects enable row level security;
 alter table public.lesson_logs enable row level security;
+alter table public.books enable row level security;
 
 drop policy if exists "own modules" on public.modules;
 create policy "own modules" on public.modules
@@ -121,6 +138,10 @@ create policy "own subjects" on public.subjects
 
 drop policy if exists "own lesson_logs" on public.lesson_logs;
 create policy "own lesson_logs" on public.lesson_logs
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "own books" on public.books;
+create policy "own books" on public.books
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ---------- Semear módulos padrão para cada novo usuário ----------

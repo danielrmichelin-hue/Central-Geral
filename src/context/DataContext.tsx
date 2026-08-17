@@ -3,10 +3,12 @@ import { store, DEFAULT_MODULES } from '../lib/store';
 import type {
   Activity,
   BibleReading,
+  Book,
   Completion,
   LessonLog,
   Module,
   NewActivity,
+  NewBook,
   NewSubject,
   Subject,
 } from '../lib/types';
@@ -19,6 +21,7 @@ interface DataCtx {
   bibleReading: BibleReading[];
   subjects: Subject[];
   lessonLogs: LessonLog[];
+  books: Book[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -35,6 +38,9 @@ interface DataCtx {
   deleteSubject: (id: string) => Promise<void>;
   addLessonLog: (subjectId: string, date: string, durationMin: number | null) => Promise<void>;
   removeLessonLog: (id: string) => Promise<void>;
+  addBook: (b: NewBook) => Promise<void>;
+  updateBook: (id: string, patch: Partial<Book>) => Promise<void>;
+  deleteBook: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<DataCtx>(null as unknown as DataCtx);
@@ -48,6 +54,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [bibleReading, setBibleReading] = useState<BibleReading[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [lessonLogs, setLessonLogs] = useState<LessonLog[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +87,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         setSubjects([]);
         setLessonLogs([]);
       }
+      try {
+        setBooks(await store.listBooks());
+      } catch {
+        setBooks([]);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar dados');
     } finally {
@@ -96,6 +108,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setBibleReading([]);
       setSubjects([]);
       setLessonLogs([]);
+      setBooks([]);
       setLoading(false);
     }
   }, [user, refresh]);
@@ -161,6 +174,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await store.removeLessonLog(id);
   };
 
+  const addBook = async (b: NewBook) => {
+    const created = await store.createBook(b);
+    setBooks((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+  };
+  const updateBook = async (id: string, patch: Partial<Book>) => {
+    setBooks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    await store.updateBook(id, patch);
+  };
+  const deleteBook = async (id: string) => {
+    setBooks((prev) => prev.filter((b) => b.id !== id));
+    await store.deleteBook(id);
+  };
+
   const addModule = async (m: Omit<Module, 'id' | 'created_at'>) => {
     const created = await store.createModule(m);
     setModules((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
@@ -184,6 +210,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         bibleReading,
         subjects,
         lessonLogs,
+        books,
         loading,
         error,
         refresh,
@@ -200,6 +227,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         deleteSubject,
         addLessonLog,
         removeLessonLog,
+        addBook,
+        updateBook,
+        deleteBook,
       }}
     >
       {children}

@@ -10,6 +10,7 @@ import { ModulePage } from './pages/ModulePage';
 import { SchedulePage } from './pages/SchedulePage';
 import { BiblePage } from './pages/BiblePage';
 import { SubjectsPage } from './pages/SubjectsPage';
+import { BooksPage } from './pages/BooksPage';
 import { Settings } from './pages/Settings';
 
 function Splash() {
@@ -32,7 +33,9 @@ function AppRoutes() {
       <Route element={user ? <Layout /> : <Navigate to="/login" replace />}>
         <Route index element={<Dashboard />} />
         <Route path="m/:slug" element={<ModulePage />} />
-        <Route path="materias" element={<SubjectsPage />} />
+        <Route path="materias" element={<SubjectsPage kind="estudo" />} />
+        <Route path="carreira" element={<SubjectsPage kind="carreira" />} />
+        <Route path="leitura-dirigida" element={<BooksPage />} />
         <Route path="biblia" element={<BiblePage />} />
         <Route path="cronograma" element={<SchedulePage />} />
         <Route path="ajustes" element={<Settings />} />

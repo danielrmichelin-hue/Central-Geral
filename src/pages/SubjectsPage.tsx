@@ -7,7 +7,41 @@ import { SubjectModal } from '../components/SubjectModal';
 import { Icon } from '../lib/icons';
 import { fmtMin, fmtShort, toISO } from '../lib/date';
 import { lastLessonLog, overallStudyStats, subjectStats, weeklyPace } from '../lib/subjects';
-import type { Subject } from '../lib/types';
+import type { Subject, SubjectKind } from '../lib/types';
+
+interface KindCopy {
+  title: string;
+  subtitle: string;
+  add: string;
+  empty: string;
+  emoji: string;
+  eyebrow: string;
+  activeLabel: string;
+  completedText: (n: number) => string;
+}
+
+const COPY: Record<SubjectKind, KindCopy> = {
+  estudo: {
+    title: 'Matérias',
+    subtitle: 'Cada matéria tem um cronograma de aulas. Registre com o Pomodoro (canto inferior) ou no “+ aula”.',
+    add: 'Nova matéria',
+    empty: 'Nenhuma matéria ainda. Crie a primeira e defina quantas aulas ela tem.',
+    emoji: '🎓',
+    eyebrow: 'Progresso geral dos estudos',
+    activeLabel: 'Matérias ativas',
+    completedText: (n) => `${n} matéria${n !== 1 ? 's' : ''} concluída${n !== 1 ? 's' : ''}`,
+  },
+  carreira: {
+    title: 'Carreira',
+    subtitle: 'Cursos e treinamentos de carreira — mesmo esquema das matérias: aulas, progresso, ritmo e Pomodoro.',
+    add: 'Novo curso',
+    empty: 'Nenhum curso ainda. Crie o primeiro e defina quantas aulas ele tem.',
+    emoji: '💼',
+    eyebrow: 'Progresso geral da carreira',
+    activeLabel: 'Cursos ativos',
+    completedText: (n) => `${n} curso${n !== 1 ? 's' : ''} concluído${n !== 1 ? 's' : ''}`,
+  },
+};
 
 function Bar({ value, color = 'var(--accent)' }: { value: number; color?: string }) {
   return (
@@ -29,22 +63,24 @@ function Stat({ v, k }: { v: string; k: string }) {
   );
 }
 
-export function SubjectsPage() {
+export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
   const { subjects, lessonLogs, modules, addLessonLog, removeLessonLog } = useData();
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<Subject | null>(null);
+  const [detail, setDetail] = useState<Subject | null>(null);
+  const copy = COPY[kind];
 
   const removeLastLesson = (subjectId: string) => {
     const last = lastLessonLog(subjectId, lessonLogs);
     if (last) removeLessonLog(last.id);
   };
-  const [editing, setEditing] = useState<Subject | null>(null);
-  const [detail, setDetail] = useState<Subject | null>(null);
 
+  const ofKind = useMemo(() => subjects.filter((s) => (s.kind ?? 'estudo') === kind), [subjects, kind]);
   const active = useMemo(
-    () => subjects.filter((s) => s.active).sort((a, b) => a.sort_order - b.sort_order),
-    [subjects],
+    () => ofKind.filter((s) => s.active).sort((a, b) => a.sort_order - b.sort_order),
+    [ofKind],
   );
-  const overall = overallStudyStats(subjects, lessonLogs);
+  const overall = overallStudyStats(ofKind, lessonLogs);
   const moduleOf = (id: string | null) => (id ? modules.find((m) => m.id === id) : undefined);
   const colorOf = (s: Subject) => s.color || moduleOf(s.module_id)?.color || 'var(--accent)';
 
@@ -52,13 +88,11 @@ export function SubjectsPage() {
     <>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="font-serif text-2xl font-semibold">Matérias</div>
-          <p className="mt-1 text-[13px] text-ink-muted">
-            Cada matéria tem um cronograma de aulas. Registre com o Pomodoro (canto inferior) ou no “+ aula”.
-          </p>
+          <div className="font-serif text-2xl font-semibold">{copy.title}</div>
+          <p className="mt-1 text-[13px] text-ink-muted">{copy.subtitle}</p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>
-          <Icon name="plus" size={15} /> Nova matéria
+          <Icon name="plus" size={15} /> {copy.add}
         </button>
       </div>
 
@@ -68,21 +102,18 @@ export function SubjectsPage() {
           <div className="flex items-center gap-5">
             <Ring pct={overall.pct} size={92} />
             <div>
-              <div className="eyebrow">Progresso geral dos estudos</div>
+              <div className="eyebrow">{copy.eyebrow}</div>
               <div className="my-0.5 font-serif text-lg font-semibold">
                 {overall.totalDone} de {overall.totalTarget} aulas
               </div>
-              <div className="text-[13px] text-ink-muted">
-                {overall.completedSubjects} matéria{overall.completedSubjects !== 1 ? 's' : ''} concluída
-                {overall.completedSubjects !== 1 ? 's' : ''}
-              </div>
+              <div className="text-[13px] text-ink-muted">{copy.completedText(overall.completedSubjects)}</div>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-8 gap-y-4">
             <Stat v={String(overall.totalDone)} k="Aulas feitas" />
             <Stat v={overall.hours.toFixed(1) + 'h'} k="Horas estudadas" />
             <Stat v={String(overall.lessonsThisWeek)} k="Aulas na semana" />
-            <Stat v={String(overall.activeSubjects)} k="Matérias ativas" />
+            <Stat v={String(overall.activeSubjects)} k={copy.activeLabel} />
           </div>
         </div>
       </div>
@@ -90,8 +121,8 @@ export function SubjectsPage() {
       {/* Lista de matérias */}
       {active.length === 0 ? (
         <div className="card grid place-items-center py-14 text-center text-ink-muted">
-          <div className="mb-2 text-3xl opacity-40">🎓</div>
-          Nenhuma matéria ainda. Crie a primeira e defina quantas aulas ela tem.
+          <div className="mb-2 text-3xl opacity-40">{copy.emoji}</div>
+          {copy.empty}
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -151,7 +182,7 @@ export function SubjectsPage() {
 
       {/* Modais */}
       <AnimatePresence>
-        {creating && <SubjectModal onClose={() => setCreating(false)} />}
+        {creating && <SubjectModal kind={kind} onClose={() => setCreating(false)} />}
         {editing && <SubjectModal subject={editing} onClose={() => setEditing(null)} />}
         {detail && (
           <SubjectDetail
