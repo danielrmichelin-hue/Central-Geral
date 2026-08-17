@@ -1,17 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useData } from '../context/DataContext';
 import { buildRoadmap, DEFAULT_WEEKLY, FOCUS_LIMIT } from '../lib/subjects';
 import { MES3, fmtMonthYear, parseISO, toISO, weeksBetween } from '../lib/date';
-import type { Subject, SubjectKind } from '../lib/types';
-
-const KIND_LABEL: Record<SubjectKind, string> = { estudo: 'Matérias', carreira: 'Carreira' };
+import type { Subject } from '../lib/types';
 
 export function RoadmapPage() {
   const { subjects, lessonLogs, modules } = useData();
-  const [kind, setKind] = useState<SubjectKind>('estudo');
 
-  const ofKind = useMemo(() => subjects.filter((s) => (s.kind ?? 'estudo') === kind), [subjects, kind]);
-  const { items, endISO } = useMemo(() => buildRoadmap(ofKind, lessonLogs), [ofKind, lessonLogs]);
+  // Trilha única: Matérias + Carreira compartilham as 3 vagas de foco.
+  const { items, endISO } = useMemo(() => buildRoadmap(subjects, lessonLogs), [subjects, lessonLogs]);
 
   const colorOf = (s: Subject) =>
     s.color || (s.module_id ? modules.find((m) => m.id === s.module_id)?.color : undefined) || 'var(--accent)';
@@ -37,32 +34,17 @@ export function RoadmapPage() {
 
   return (
     <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="font-serif text-2xl font-semibold">Roadmap</div>
-          <p className="mt-1 text-[13px] text-ink-muted">
-            Sua trilha de estudo em foco: {FOCUS_LIMIT} por vez, até concluir. Veja quando cada uma termina.
-          </p>
-        </div>
-        <div className="inline-flex gap-1 rounded-sm border border-line bg-surface p-1">
-          {(['estudo', 'carreira'] as SubjectKind[]).map((k) => (
-            <button
-              key={k}
-              onClick={() => setKind(k)}
-              className={`rounded-[6px] px-3 py-1.5 text-[12.5px] font-semibold transition ${
-                kind === k ? 'bg-surface-3 text-ink' : 'text-ink-muted hover:text-ink'
-              }`}
-            >
-              {KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
+      <div className="mb-5">
+        <div className="font-serif text-2xl font-semibold">Roadmap</div>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          Sua trilha em foco (Matérias + Carreira juntas): {FOCUS_LIMIT} por vez, até concluir. Veja quando cada uma termina.
+        </p>
       </div>
 
       {items.length === 0 ? (
         <div className="card grid place-items-center py-16 text-center text-ink-muted">
           <div className="mb-2 text-3xl opacity-40">🗺️</div>
-          Sem matérias em andamento. Adicione matérias (em foco ou na fila) para ver a projeção.
+          Sem matérias/cursos em andamento. Adicione (em foco ou na fila) para ver a projeção.
         </div>
       ) : (
         <>
@@ -75,7 +57,7 @@ export function RoadmapPage() {
                   {endISO ? fmtMonthYear(endISO) : '—'}
                 </div>
                 <div className="text-[13px] text-ink-muted">
-                  {items.length} {KIND_LABEL[kind].toLowerCase()} na trilha · {FOCUS_LIMIT} em paralelo
+                  {items.length} na trilha · {FOCUS_LIMIT} em paralelo
                 </div>
               </div>
               <p className="max-w-sm text-[12px] text-ink-muted">

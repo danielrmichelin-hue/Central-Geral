@@ -159,9 +159,7 @@ set search_path = public
 as $$
 begin
   insert into public.modules (user_id, name, slug, color, icon, sort_order) values
-    (new.id, 'Profissional', 'profissional', '#6E8BFF', 'briefcase', 1),
-    (new.id, 'Intelectual', 'intelectual', '#C9A961', 'book', 2),
-    (new.id, 'Pessoal', 'pessoal', '#4ADE80', 'heart', 3);
+    (new.id, 'Pessoal', 'pessoal', '#4ADE80', 'heart', 1);
   return new;
 end;
 $$;

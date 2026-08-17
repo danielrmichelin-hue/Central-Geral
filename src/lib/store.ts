@@ -53,9 +53,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 // Módulos padrão + amostras (modo demo / primeiro acesso)
 // ─────────────────────────────────────────────────────────────
 export const DEFAULT_MODULES: Omit<Module, 'id' | 'created_at' | 'user_id'>[] = [
-  { name: 'Profissional', slug: 'profissional', color: '#6E8BFF', icon: 'briefcase', sort_order: 1 },
-  { name: 'Intelectual', slug: 'intelectual', color: '#C9A961', icon: 'book', sort_order: 2 },
-  { name: 'Pessoal', slug: 'pessoal', color: '#4ADE80', icon: 'heart', sort_order: 3 },
+  { name: 'Pessoal', slug: 'pessoal', color: '#4ADE80', icon: 'heart', sort_order: 1 },
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -118,26 +116,18 @@ function seedDB(): LocalDB {
     ...o,
   });
   const activities: Activity[] = [
-    // Intelectual
-    mk({ module_id: byslug('intelectual'), title: 'Filosofia', recurrence: 'fixed', days_of_week: [1, 3], duration_min: 60 }),
-    mk({ module_id: byslug('intelectual'), title: 'Inglês', recurrence: 'fixed', days_of_week: [2, 4], duration_min: 45 }),
-    mk({ module_id: byslug('intelectual'), title: 'Leitura Dirigida', recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5], duration_min: 40 }),
-    // Profissional
-    mk({ module_id: byslug('profissional'), title: 'Deep work — projeto principal', recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5], duration_min: 120 }),
-    mk({ module_id: byslug('profissional'), title: 'Revisar métricas da semana', recurrence: 'fixed', days_of_week: [1], duration_min: 30 }),
-    // Pessoal
+    // Pessoal (hábitos do dia a dia)
     mk({ module_id: byslug('pessoal'), title: 'Academia', recurrence: 'fixed', days_of_week: [1, 2, 4, 5], duration_min: 60 }),
     mk({ module_id: byslug('pessoal'), title: 'Devocional', recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5], duration_min: 20 }),
+    mk({ module_id: byslug('pessoal'), title: 'Meditar', recurrence: 'fixed', days_of_week: [0, 6], duration_min: 15 }),
     // Pontual — exemplo do dia (igual ao caso da lâmpada)
     mk({ module_id: byslug('pessoal'), title: 'Trocar lâmpada da cozinha', recurrence: 'once', date: toISO(), duration_min: 15 }),
   ];
-  const intelectual = byslug('intelectual');
-  const profissional = byslug('profissional');
   const mkSubj = (o: Partial<Subject> & { name: string; total_lessons: number }): Subject => ({
     id: uid(),
     kind: 'estudo',
     status: 'fila',
-    module_id: intelectual,
+    module_id: null,
     color: null,
     notes: null,
     active: true,
@@ -149,15 +139,16 @@ function seedDB(): LocalDB {
     target_date: null,
     ...o,
   });
+  // Limite de foco é 3 no TOTAL (Matérias + Carreira). Demo: 2 matérias + 1 curso.
   const subjects: Subject[] = [
     mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 1, status: 'foco', recurrence: 'fixed', days_of_week: [1, 3], weekly_goal: 5 }),
     mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 2, status: 'foco', recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 4 }),
-    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, status: 'foco', recurrence: 'fixed', days_of_week: [1, 2, 3, 4, 5], weekly_goal: 5 }),
+    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 3, status: 'fila' }),
     mkSubj({ name: 'Geografia', total_lessons: 70, sort_order: 4, status: 'fila' }),
     mkSubj({ name: 'Redação', total_lessons: 40, sort_order: 5, status: 'fila' }),
     mkSubj({ name: 'Latim', total_lessons: 50, sort_order: 6, status: 'concluida' }),
-    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', status: 'foco', module_id: profissional, recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 3 }),
-    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', status: 'fila', module_id: profissional }),
+    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', status: 'foco', recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 3 }),
+    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', status: 'fila' }),
   ];
   const today = toISO();
   const lessonLogs: LessonLog[] = [
