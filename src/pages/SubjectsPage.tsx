@@ -5,42 +5,48 @@ import { Ring } from '../components/Ring';
 import { Modal } from '../components/Modal';
 import { SubjectModal } from '../components/SubjectModal';
 import { Icon } from '../lib/icons';
-import { fmtMin, fmtShort, toISO } from '../lib/date';
-import { lastLessonLog, overallStudyStats, subjectStats, weeklyPace } from '../lib/subjects';
+import { fmtMin, fmtMonthYear, fmtShort, toISO } from '../lib/date';
+import {
+  FOCUS_LIMIT,
+  lastLessonLog,
+  overallStudyStats,
+  subjectPlan,
+  subjectStats,
+  weeklyPace,
+  type Farol,
+} from '../lib/subjects';
 import type { Subject, SubjectKind } from '../lib/types';
 
 interface KindCopy {
   title: string;
   subtitle: string;
   add: string;
-  empty: string;
-  emoji: string;
+  unit: string; // "matéria" | "curso"
   eyebrow: string;
-  activeLabel: string;
-  completedText: (n: number) => string;
 }
 
 const COPY: Record<SubjectKind, KindCopy> = {
   estudo: {
     title: 'Matérias',
-    subtitle: 'Cada matéria tem um cronograma de aulas. Registre com o Pomodoro (canto inferior) ou no “+ aula”.',
+    subtitle: 'Estude em foco: no máximo 3 de cada vez, até concluir. As demais esperam na fila.',
     add: 'Nova matéria',
-    empty: 'Nenhuma matéria ainda. Crie a primeira e defina quantas aulas ela tem.',
-    emoji: '🎓',
+    unit: 'matéria',
     eyebrow: 'Progresso geral dos estudos',
-    activeLabel: 'Matérias ativas',
-    completedText: (n) => `${n} matéria${n !== 1 ? 's' : ''} concluída${n !== 1 ? 's' : ''}`,
   },
   carreira: {
     title: 'Carreira',
-    subtitle: 'Cursos e treinamentos de carreira — mesmo esquema das matérias: aulas, progresso, ritmo e Pomodoro.',
+    subtitle: 'Cursos de carreira em foco: no máximo 3 simultâneos, até concluir. Os demais na fila.',
     add: 'Novo curso',
-    empty: 'Nenhum curso ainda. Crie o primeiro e defina quantas aulas ele tem.',
-    emoji: '💼',
+    unit: 'curso',
     eyebrow: 'Progresso geral da carreira',
-    activeLabel: 'Cursos ativos',
-    completedText: (n) => `${n} curso${n !== 1 ? 's' : ''} concluído${n !== 1 ? 's' : ''}`,
   },
+};
+
+const FAROL: Record<Farol, { label: string; color: string; bg: string }> = {
+  adiantado: { label: 'Adiantado', color: 'var(--success)', bg: 'rgba(74,222,128,.13)' },
+  'no-ritmo': { label: 'No ritmo', color: 'var(--accent)', bg: 'rgba(110,139,255,.14)' },
+  atrasado: { label: 'Atrasado', color: 'var(--warning)', bg: 'rgba(245,180,90,.14)' },
+  'sem-meta': { label: 'Sem meta', color: 'var(--faint)', bg: 'var(--surface-3)' },
 };
 
 function Bar({ value, color = 'var(--accent)' }: { value: number; color?: string }) {
@@ -64,25 +70,52 @@ function Stat({ v, k }: { v: string; k: string }) {
 }
 
 export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
-  const { subjects, lessonLogs, modules, addLessonLog, removeLessonLog } = useData();
+  const { subjects, lessonLogs, modules, addLessonLog, removeLessonLog, updateSubject } = useData();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Subject | null>(null);
   const [detail, setDetail] = useState<Subject | null>(null);
+  const [showDone, setShowDone] = useState(false);
   const copy = COPY[kind];
 
-  const removeLastLesson = (subjectId: string) => {
-    const last = lastLessonLog(subjectId, lessonLogs);
-    if (last) removeLessonLog(last.id);
-  };
-
   const ofKind = useMemo(() => subjects.filter((s) => (s.kind ?? 'estudo') === kind), [subjects, kind]);
-  const active = useMemo(
-    () => ofKind.filter((s) => s.active).sort((a, b) => a.sort_order - b.sort_order),
+  const foco = useMemo(
+    () => ofKind.filter((s) => s.status === 'foco').sort((a, b) => a.sort_order - b.sort_order),
+    [ofKind],
+  );
+  const fila = useMemo(
+    () => ofKind.filter((s) => s.status === 'fila').sort((a, b) => a.sort_order - b.sort_order),
+    [ofKind],
+  );
+  const done = useMemo(
+    () => ofKind.filter((s) => s.status === 'concluida').sort((a, b) => a.sort_order - b.sort_order),
     [ofKind],
   );
   const overall = overallStudyStats(ofKind, lessonLogs);
+
   const moduleOf = (id: string | null) => (id ? modules.find((m) => m.id === id) : undefined);
   const colorOf = (s: Subject) => s.color || moduleOf(s.module_id)?.color || 'var(--accent)';
+
+  const removeLast = (id: string) => {
+    const last = lastLessonLog(id, lessonLogs);
+    if (last) removeLessonLog(last.id);
+  };
+  const focus = (s: Subject) => {
+    if (foco.length >= FOCUS_LIMIT) {
+      alert(`Você já tem ${FOCUS_LIMIT} em foco. Conclua ou devolva uma à fila antes de puxar a próxima.`);
+      return;
+    }
+    updateSubject(s.id, { status: 'foco' });
+  };
+  const complete = (s: Subject) => updateSubject(s.id, { status: 'concluida' });
+  const toQueue = (s: Subject) => updateSubject(s.id, { status: 'fila' });
+  const move = (arr: Subject[], i: number, dir: number) => {
+    const j = i + dir;
+    if (j < 0 || j >= arr.length) return;
+    const a = arr[i];
+    const b = arr[j];
+    updateSubject(a.id, { sort_order: b.sort_order });
+    updateSubject(b.id, { sort_order: a.sort_order });
+  };
 
   return (
     <>
@@ -106,84 +139,132 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
               <div className="my-0.5 font-serif text-lg font-semibold">
                 {overall.totalDone} de {overall.totalTarget} aulas
               </div>
-              <div className="text-[13px] text-ink-muted">{copy.completedText(overall.completedSubjects)}</div>
+              <div className="text-[13px] text-ink-muted">
+                {foco.length} em foco · {fila.length} na fila · {done.length} concluída{done.length !== 1 ? 's' : ''}
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-8 gap-y-4">
-            <Stat v={String(overall.totalDone)} k="Aulas feitas" />
-            <Stat v={overall.hours.toFixed(1) + 'h'} k="Horas estudadas" />
+            <Stat v={`${foco.length}/${FOCUS_LIMIT}`} k="Em foco" />
+            <Stat v={overall.hours.toFixed(1) + 'h'} k="Horas" />
             <Stat v={String(overall.lessonsThisWeek)} k="Aulas na semana" />
-            <Stat v={String(overall.activeSubjects)} k={copy.activeLabel} />
+            <Stat v={String(done.length)} k="Concluídas" />
           </div>
         </div>
       </div>
 
-      {/* Lista de matérias */}
-      {active.length === 0 ? (
-        <div className="card grid place-items-center py-14 text-center text-ink-muted">
-          <div className="mb-2 text-3xl opacity-40">{copy.emoji}</div>
-          {copy.empty}
+      {/* EM FOCO */}
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">🎯 Em foco</span>
+        <span className="font-mono text-xs text-faint">{foco.length}/{FOCUS_LIMIT}</span>
+      </div>
+      {foco.length === 0 ? (
+        <div className="card mb-6 grid place-items-center py-10 text-center text-sm text-ink-muted">
+          Nenhuma {copy.unit} em foco. Puxe até {FOCUS_LIMIT} da fila abaixo para começar.
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {active.map((s) => {
-            const st = subjectStats(s, lessonLogs);
-            const color = colorOf(s);
-            return (
-              <div
-                key={s.id}
-                className="flex flex-wrap items-center gap-4 rounded border border-line bg-surface p-4 transition hover:border-line-strong"
-              >
-                <button className="min-w-[180px] flex-1 text-left" onClick={() => setDetail(s)}>
-                  <div className="flex items-center gap-2 font-semibold">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-                    {s.name}
-                    {st.completed && <span className="text-success"><Icon name="check" size={15} /></span>}
-                  </div>
-                  <div className="mt-1 text-xs text-ink-muted">
-                    Aula {Math.min(st.done + 1, st.total)} de {st.total}
-                    {st.lastDate ? ` · última ${fmtShort(st.lastDate)}` : ''}
-                    {st.pace > 0 && !st.completed ? ` · ~${st.pace.toFixed(1)}/sem` : ''}
-                    {st.etaWeeks ? ` · termina em ~${st.etaWeeks} sem` : ''}
-                  </div>
-                </button>
-
-                <div className="w-[160px]">
-                  <Bar value={st.pct} color={st.completed ? 'var(--success)' : color} />
-                </div>
-                <div className="w-[76px] text-right">
-                  <div className="font-mono font-semibold tabular-nums">{st.pct}%</div>
-                  <div className="text-[11px] text-ink-muted">faltam {st.remaining}</div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    disabled={st.done === 0}
-                    onClick={() => removeLastLesson(s.id)}
-                    title="Remover a última aula registrada"
-                  >
-                    <Icon name="minus" size={14} />
-                  </button>
-                  <button
-                    className="btn btn-gold btn-sm"
-                    disabled={st.completed}
-                    onClick={() => addLessonLog(s.id, toISO(), null)}
-                    title="Registrar 1 aula concluída"
-                  >
-                    <Icon name="plus" size={14} /> aula
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+        <div className="mb-6 space-y-3">
+          {foco.map((s) => (
+            <FocusCard
+              key={s.id}
+              s={s}
+              logs={lessonLogs}
+              color={colorOf(s)}
+              onDetail={() => setDetail(s)}
+              onEdit={() => setEditing(s)}
+              onAdd={() => addLessonLog(s.id, toISO(), null)}
+              onRemove={() => removeLast(s.id)}
+              onComplete={() => complete(s)}
+              onQueue={() => toQueue(s)}
+            />
+          ))}
         </div>
+      )}
+
+      {/* FILA */}
+      {fila.length > 0 && (
+        <>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">📋 Na fila</span>
+            <span className="font-mono text-xs text-faint">{fila.length}</span>
+          </div>
+          <div className="mb-6 space-y-2">
+            {fila.map((s, i) => {
+              const st = subjectStats(s, lessonLogs);
+              return (
+                <div key={s.id} className="flex flex-wrap items-center gap-3 rounded border border-line bg-surface p-3.5">
+                  <span className="grid h-6 w-6 place-items-center rounded-sm bg-surface-3 font-mono text-[11px] text-ink-muted">
+                    {i + 1}
+                  </span>
+                  <button className="min-w-[140px] flex-1 text-left" onClick={() => setEditing(s)}>
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className="h-2 w-2 rounded-full" style={{ background: colorOf(s) }} />
+                      {s.name}
+                    </div>
+                    <div className="mt-0.5 text-xs text-ink-muted">
+                      {st.done}/{st.total} aulas{s.weekly_goal ? ` · meta ${s.weekly_goal}/sem` : ''}
+                      {s.target_date ? ` · até ${fmtShort(s.target_date)}` : ''}
+                    </div>
+                  </button>
+                  <div className="flex items-center gap-1">
+                    <button className="icon-btn" onClick={() => move(fila, i, -1)} disabled={i === 0} title="Subir">
+                      ↑
+                    </button>
+                    <button className="icon-btn" onClick={() => move(fila, i, 1)} disabled={i === fila.length - 1} title="Descer">
+                      ↓
+                    </button>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => focus(s)}
+                    disabled={foco.length >= FOCUS_LIMIT}
+                    title={foco.length >= FOCUS_LIMIT ? `Máximo de ${FOCUS_LIMIT} em foco` : 'Colocar em foco'}
+                  >
+                    ▶ Focar
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* CONCLUÍDAS */}
+      {done.length > 0 && (
+        <>
+          <button
+            className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink"
+            onClick={() => setShowDone((v) => !v)}
+          >
+            ✅ Concluídas <span className="font-mono text-faint">{done.length}</span>
+            <span className="text-faint">{showDone ? '▲' : '▼'}</span>
+          </button>
+          {showDone && (
+            <div className="space-y-2">
+              {done.map((s) => {
+                const st = subjectStats(s, lessonLogs);
+                return (
+                  <div key={s.id} className="flex flex-wrap items-center gap-3 rounded border border-line bg-surface/60 p-3 opacity-80">
+                    <span className="text-success">
+                      <Icon name="check" size={16} />
+                    </span>
+                    <span className="min-w-[140px] flex-1 font-medium line-through decoration-faint">{s.name}</span>
+                    <span className="text-xs text-ink-muted">{st.done}/{st.total} aulas · {st.hours.toFixed(1)}h</span>
+                    <button className="btn btn-ghost btn-sm" onClick={() => toQueue(s)}>
+                      Reabrir
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Modais */}
       <AnimatePresence>
-        {creating && <SubjectModal kind={kind} onClose={() => setCreating(false)} />}
-        {editing && <SubjectModal subject={editing} onClose={() => setEditing(null)} />}
+        {creating && <SubjectModal kind={kind} focoCount={foco.length} onClose={() => setCreating(false)} />}
+        {editing && <SubjectModal subject={editing} focoCount={foco.length} onClose={() => setEditing(null)} />}
         {detail && (
           <SubjectDetail
             subject={detail}
@@ -199,13 +280,117 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
   );
 }
 
+function FarolChip({ farol }: { farol: Farol }) {
+  const f = FAROL[farol];
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+      style={{ color: f.color, background: f.bg }}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: f.color }} />
+      {f.label}
+    </span>
+  );
+}
+
+function FocusCard({
+  s,
+  logs,
+  color,
+  onDetail,
+  onEdit,
+  onAdd,
+  onRemove,
+  onComplete,
+  onQueue,
+}: {
+  s: Subject;
+  logs: import('../lib/types').LessonLog[];
+  color: string;
+  onDetail: () => void;
+  onEdit: () => void;
+  onAdd: () => void;
+  onRemove: () => void;
+  onComplete: () => void;
+  onQueue: () => void;
+}) {
+  const st = subjectStats(s, logs);
+  const plan = subjectPlan(s, logs);
+  const goal = plan.requiredWeekly ?? 0;
+  const finished = st.done >= st.total;
+
+  return (
+    <div className="card">
+      <div className="flex flex-wrap items-start gap-5">
+        <Ring pct={st.pct} size={78} color={finished ? 'var(--success)' : color} />
+        <div className="min-w-[200px] flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button className="font-serif text-lg font-semibold hover:underline" onClick={onDetail}>
+              {s.name}
+            </button>
+            <FarolChip farol={finished ? 'adiantado' : plan.farol} />
+            <button className="icon-btn ml-auto" onClick={onEdit} title="Editar">
+              <Icon name="edit" size={14} />
+            </button>
+            <button className="icon-btn" onClick={onQueue} title="Devolver à fila">
+              ↩
+            </button>
+          </div>
+
+          <div className="mt-1.5 flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-ink-muted">
+            <span>
+              <b className="text-ink">{st.done}</b>/{st.total} aulas · faltam {st.remaining}
+            </span>
+            {plan.requiredWeekly ? <span>Meta: <b className="text-ink">{plan.requiredWeekly}</b>/sem</span> : null}
+            {plan.projectedEnd ? (
+              <span>Previsão: <b className="text-ink">{fmtMonthYear(plan.projectedEnd)}</b></span>
+            ) : null}
+            {s.target_date ? <span>Alvo: {fmtShort(s.target_date)}</span> : null}
+          </div>
+
+          {/* progresso da semana vs meta */}
+          {goal > 0 && (
+            <div className="mt-2.5">
+              <div className="mb-1 flex justify-between text-[11px] text-ink-muted">
+                <span>Esta semana</span>
+                <span className="font-mono">
+                  {plan.weekDone}/{goal}
+                </span>
+              </div>
+              <Bar value={(plan.weekDone / goal) * 100} color={plan.weekDone >= goal ? 'var(--success)' : color} />
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <button className="btn btn-ghost btn-sm" onClick={onRemove} disabled={st.done === 0} title="Tirar 1 aula">
+              <Icon name="minus" size={14} />
+            </button>
+            <button className="btn btn-gold btn-sm" onClick={onAdd} disabled={finished} title="Registrar 1 aula">
+              <Icon name="plus" size={14} /> aula
+            </button>
+            <button
+              className={`btn btn-sm ${finished ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={onComplete}
+              title="Marcar como concluída e abrir vaga no foco"
+            >
+              <Icon name="check" size={14} /> {finished ? 'Concluir 🎉' : 'Concluir'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SubjectDetail({ subject, onEdit, onClose }: { subject: Subject; onEdit: () => void; onClose: () => void }) {
   const { lessonLogs, modules, addLessonLog, removeLessonLog } = useData();
   const [dur, setDur] = useState('');
   const st = subjectStats(subject, lessonLogs);
+  const plan = subjectPlan(subject, lessonLogs);
   const pace = weeklyPace(subject.id, lessonLogs, 8);
   const maxPace = Math.max(1, ...pace);
-  const color = subject.color || (subject.module_id ? modules.find((m) => m.id === subject.module_id)?.color : undefined) || 'var(--accent)';
+  const color =
+    subject.color || (subject.module_id ? modules.find((m) => m.id === subject.module_id)?.color : undefined) || 'var(--accent)';
   const mine = lessonLogs
     .filter((l) => l.subject_id === subject.id)
     .sort((a, b) => (b.created_at || b.date).localeCompare(a.created_at || a.date));
@@ -236,11 +421,10 @@ function SubjectDetail({ subject, onEdit, onClose }: { subject: Subject; onEdit:
           <Stat v={`${st.done}/${st.total}`} k="Aulas" />
           <Stat v={String(st.remaining)} k="Faltam" />
           <Stat v={st.hours.toFixed(1) + 'h'} k="Horas" />
-          <Stat v={st.etaWeeks ? `~${st.etaWeeks}` : '—'} k="Semanas p/ fim" />
+          <Stat v={plan.projectedEnd ? fmtMonthYear(plan.projectedEnd) : '—'} k="Previsão" />
         </div>
       </div>
 
-      {/* Ritmo semanal */}
       <div>
         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">Ritmo · aulas por semana (8 sem)</div>
         <div className="flex h-16 items-end gap-1.5">
@@ -255,7 +439,6 @@ function SubjectDetail({ subject, onEdit, onClose }: { subject: Subject; onEdit:
         </div>
       </div>
 
-      {/* Registrar aula com duração */}
       <div className="flex items-end gap-2 rounded-sm border border-line bg-bg p-3">
         <label className="flex-1">
           <span className="text-xs font-semibold text-ink-muted">Registrar aula — duração (min, opcional)</span>
@@ -274,7 +457,6 @@ function SubjectDetail({ subject, onEdit, onClose }: { subject: Subject; onEdit:
         </button>
       </div>
 
-      {/* Histórico */}
       <div>
         <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
           Histórico · {mine.length} aula{mine.length !== 1 ? 's' : ''}

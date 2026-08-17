@@ -10,6 +10,7 @@ import { ModulePage } from './pages/ModulePage';
 import { SchedulePage } from './pages/SchedulePage';
 import { BiblePage } from './pages/BiblePage';
 import { SubjectsPage } from './pages/SubjectsPage';
+import { RoadmapPage } from './pages/RoadmapPage';
 import { BooksPage } from './pages/BooksPage';
 import { Settings } from './pages/Settings';
 
@@ -35,6 +36,7 @@ function AppRoutes() {
         <Route path="m/:slug" element={<ModulePage />} />
         <Route path="materias" element={<SubjectsPage kind="estudo" />} />
         <Route path="carreira" element={<SubjectsPage kind="carreira" />} />
+        <Route path="roadmap" element={<RoadmapPage />} />
         <Route path="leitura-dirigida" element={<BooksPage />} />
         <Route path="biblia" element={<BiblePage />} />
         <Route path="cronograma" element={<SchedulePage />} />

@@ -2,16 +2,19 @@ import { useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useData } from '../context/DataContext';
 import { useToast } from './Toast';
+import { FOCUS_LIMIT } from '../lib/subjects';
 import { WD3, toISO } from '../lib/date';
-import type { Subject, SubjectKind, SubjectSchedule } from '../lib/types';
+import type { Subject, SubjectKind, SubjectSchedule, SubjectStatus } from '../lib/types';
 
 interface Props {
   subject?: Subject | null;
   kind?: SubjectKind;
+  /** Quantas já estão em foco (para respeitar o limite ao criar em foco). */
+  focoCount?: number;
   onClose: () => void;
 }
 
-export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
+export function SubjectModal({ subject, kind = 'estudo', focoCount = 0, onClose }: Props) {
   const { modules, addSubject, updateSubject, deleteSubject } = useData();
   const toast = useToast();
   const isNew = !subject;
@@ -23,6 +26,9 @@ export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
   const [recurrence, setRecurrence] = useState<SubjectSchedule>(subject?.recurrence ?? 'none');
   const [days, setDays] = useState<number[]>(subject?.days_of_week?.length ? subject.days_of_week : [1, 3]);
   const [studyDate, setStudyDate] = useState<string>(subject?.study_date ?? toISO());
+  const [weeklyGoal, setWeeklyGoal] = useState<string>(subject?.weekly_goal ? String(subject.weekly_goal) : '');
+  const [targetDate, setTargetDate] = useState<string>(subject?.target_date ?? '');
+  const [startFoco, setStartFoco] = useState(false);
 
   const toggleDay = (d: number) =>
     setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
@@ -33,8 +39,14 @@ export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
       toast('Escolha ao menos um dia da semana', 'danger');
       return;
     }
+    const status: SubjectStatus | undefined = isNew
+      ? startFoco && focoCount < FOCUS_LIMIT
+        ? 'foco'
+        : 'fila'
+      : undefined;
     const payload = {
       kind: subject?.kind ?? kind,
+      ...(status ? { status } : {}),
       name: name.trim(),
       module_id: moduleId || null,
       total_lessons: Math.max(1, Number(total) || 1),
@@ -42,6 +54,8 @@ export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
       recurrence,
       days_of_week: recurrence === 'fixed' ? days : [],
       study_date: recurrence === 'once' ? studyDate : null,
+      weekly_goal: weeklyGoal ? Math.max(1, Number(weeklyGoal)) : null,
+      target_date: targetDate || null,
     };
     try {
       if (isNew) {
@@ -168,8 +182,46 @@ export function SubjectModal({ subject, kind = 'estudo', onClose }: Props) {
 
       {recurrence !== 'none' && (
         <p className="-mt-1 text-[12px] text-ink-muted">
-          Vai aparecer no painel <b>Hoje</b> e no <b>Cronograma</b> nos dias marcados. Marcar lá registra 1 aula.
+          Só aparece no <b>Hoje</b> e no <b>Cronograma</b> quando estiver <b>em foco</b>. Marcar lá registra 1 aula.
         </p>
+      )}
+
+      <Field label="Meta de conclusão (opcional)">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <input
+              className="inp"
+              type="number"
+              min={1}
+              placeholder="ritmo: aulas/semana"
+              value={weeklyGoal}
+              onChange={(e) => setWeeklyGoal(e.target.value)}
+            />
+            <span className="mt-1 block text-[11px] text-faint">ex: 5 aulas por semana</span>
+          </div>
+          <div>
+            <input className="inp" type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} />
+            <span className="mt-1 block text-[11px] text-faint">ou uma data-alvo</span>
+          </div>
+        </div>
+      </Field>
+      <p className="-mt-1 text-[12px] text-ink-muted">
+        Preencha um dos dois (ou os dois) — o sistema calcula o ritmo necessário, o farol e a previsão de término.
+      </p>
+
+      {isNew && (
+        <label className="flex cursor-pointer items-center gap-2.5 rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-[13px]">
+          <input
+            type="checkbox"
+            checked={startFoco}
+            disabled={focoCount >= FOCUS_LIMIT}
+            onChange={(e) => setStartFoco(e.target.checked)}
+          />
+          <span className={focoCount >= FOCUS_LIMIT ? 'text-faint' : ''}>
+            Começar <b>em foco</b> agora
+            {focoCount >= FOCUS_LIMIT ? ` (limite de ${FOCUS_LIMIT} atingido)` : ` — senão vai para a fila`}
+          </span>
+        </label>
       )}
 
       <Field label="Notas (opcional)">

@@ -56,6 +56,7 @@ create table if not exists public.subjects (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   kind text not null default 'estudo' check (kind in ('estudo', 'carreira')),
+  status text not null default 'fila' check (status in ('foco', 'fila', 'concluida')),
   module_id uuid references public.modules (id) on delete set null,
   name text not null,
   total_lessons int not null default 40,
@@ -66,14 +67,19 @@ create table if not exists public.subjects (
   recurrence text not null default 'none' check (recurrence in ('none', 'fixed', 'once')),
   days_of_week int[] not null default '{}',
   study_date date,
+  weekly_goal int,
+  target_date date,
   created_at timestamptz not null default now()
 );
 
 -- Se a tabela subjects já existia (versão anterior), garante as colunas novas:
 alter table public.subjects add column if not exists kind text not null default 'estudo';
+alter table public.subjects add column if not exists status text not null default 'fila';
 alter table public.subjects add column if not exists recurrence text not null default 'none';
 alter table public.subjects add column if not exists days_of_week int[] not null default '{}';
 alter table public.subjects add column if not exists study_date date;
+alter table public.subjects add column if not exists weekly_goal int;
+alter table public.subjects add column if not exists target_date date;
 
 create table if not exists public.books (
   id uuid primary key default gen_random_uuid(),
