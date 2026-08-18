@@ -1,10 +1,8 @@
 import type { LessonLog, Subject } from './types';
 import { addDays, addWeeks, pct, toISO, weekdayOf, weeksBetween } from './date';
 
-/** Composição fixa do foco: 1 matéria + 2 cursos de carreira. */
-export const FOCUS_LIMITS: Record<import('./types').SubjectKind, number> = { estudo: 1, carreira: 2 };
-/** Total de vagas de foco (soma dos limites por área). */
-export const FOCUS_LIMIT = FOCUS_LIMITS.estudo + FOCUS_LIMITS.carreira; // 3
+/** Vagas de foco — mix livre de matérias e cursos (você decide a composição). */
+export const FOCUS_LIMIT = 3;
 /** Ritmo assumido (aulas/semana) quando não há meta nem histórico — usado no roadmap. */
 export const DEFAULT_WEEKLY = 5;
 
@@ -247,45 +245,6 @@ export function buildRoadmap(
   }
 
   return { items, endISO: items.length ? addWeeks(today, maxWeeks) : null };
-}
-
-export interface RoadmapLane {
-  kind: import('./types').SubjectKind;
-  label: string;
-  items: RoadmapItem[];
-}
-
-/**
- * Roadmap com a composição fixa do foco: 1 trilha de Matéria + 2 de Carreira.
- * Cada área é simulada com seu próprio número de trilhas e respeita a ordem
- * (foco primeiro, depois a fila por sort_order).
- */
-export function buildFocusRoadmap(
-  subjects: Subject[],
-  logs: LessonLog[],
-): { lanes: RoadmapLane[]; endISO: string | null } {
-  const mat = buildRoadmap(
-    subjects.filter((s) => (s.kind ?? 'estudo') === 'estudo'),
-    logs,
-    FOCUS_LIMITS.estudo,
-  );
-  const car = buildRoadmap(
-    subjects.filter((s) => (s.kind ?? 'estudo') === 'carreira'),
-    logs,
-    FOCUS_LIMITS.carreira,
-  );
-
-  const lanes: RoadmapLane[] = [];
-  for (let i = 0; i < FOCUS_LIMITS.estudo; i++) {
-    lanes.push({ kind: 'estudo', label: 'Matéria', items: mat.items.filter((it) => it.lane === i) });
-  }
-  for (let i = 0; i < FOCUS_LIMITS.carreira; i++) {
-    lanes.push({ kind: 'carreira', label: 'Carreira', items: car.items.filter((it) => it.lane === i) });
-  }
-
-  const ends = [mat.endISO, car.endISO].filter(Boolean) as string[];
-  const endISO = ends.length ? ends.sort().slice(-1)[0] : null;
-  return { lanes, endISO };
 }
 
 /** Duração média de uma aula em minutos (para prever tempo restante). */

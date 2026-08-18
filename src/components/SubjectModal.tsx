@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useData } from '../context/DataContext';
 import { useToast } from './Toast';
-import { FOCUS_LIMITS } from '../lib/subjects';
+import { FOCUS_LIMIT } from '../lib/subjects';
 import { WD3, toISO } from '../lib/date';
 import type { Subject, SubjectKind, SubjectSchedule, SubjectStatus } from '../lib/types';
 
@@ -18,7 +18,7 @@ export function SubjectModal({ subject, kind = 'estudo', focoCount = 0, onClose 
   const { modules, addSubject, updateSubject, deleteSubject } = useData();
   const toast = useToast();
   const isNew = !subject;
-  const focusLimit = FOCUS_LIMITS[subject?.kind ?? kind];
+  const focusLimit = FOCUS_LIMIT;
 
   const [name, setName] = useState(subject?.name ?? '');
   const [moduleId, setModuleId] = useState<string>(subject?.module_id ?? '');

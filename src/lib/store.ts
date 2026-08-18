@@ -139,17 +139,18 @@ function seedDB(): LocalDB {
     target_date: null,
     ...o,
   });
-  // Composição do foco: 1 matéria + 2 cursos de carreira.
+  // Fase atual: 1 matéria + 2 cursos em foco (mix livre — a composição pode mudar).
+  // sort_order é GLOBAL (foco primeiro, depois a fila na ordem).
   const subjects: Subject[] = [
     mkSubj({ name: 'Filosofia', total_lessons: 100, sort_order: 0, status: 'foco', recurrence: 'fixed', days_of_week: [1, 3], weekly_goal: 5 }),
-    mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 0, status: 'fila' }),
-    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 1, status: 'fila' }),
-    mkSubj({ name: 'Geografia', total_lessons: 70, sort_order: 2, status: 'fila' }),
-    mkSubj({ name: 'Redação', total_lessons: 40, sort_order: 3, status: 'fila' }),
-    mkSubj({ name: 'Latim', total_lessons: 50, sort_order: 4, status: 'concluida' }),
-    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 0, kind: 'carreira', status: 'foco', recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 3 }),
-    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 1, kind: 'carreira', status: 'foco', recurrence: 'fixed', days_of_week: [3, 5], weekly_goal: 2 }),
-    mkSubj({ name: 'Excel Avançado', total_lessons: 30, sort_order: 2, kind: 'carreira', status: 'fila' }),
+    mkSubj({ name: 'Curso de Vendas', total_lessons: 40, sort_order: 1, kind: 'carreira', status: 'foco', recurrence: 'fixed', days_of_week: [2, 4], weekly_goal: 3 }),
+    mkSubj({ name: 'Liderança & Gestão', total_lessons: 24, sort_order: 2, kind: 'carreira', status: 'foco', recurrence: 'fixed', days_of_week: [3, 5], weekly_goal: 2 }),
+    mkSubj({ name: 'Excel Avançado', total_lessons: 30, sort_order: 3, kind: 'carreira', status: 'fila' }),
+    mkSubj({ name: 'História Geral', total_lessons: 80, sort_order: 4, status: 'fila' }),
+    mkSubj({ name: 'Inglês', total_lessons: 60, sort_order: 5, status: 'fila' }),
+    mkSubj({ name: 'Geografia', total_lessons: 70, sort_order: 6, status: 'fila' }),
+    mkSubj({ name: 'Redação', total_lessons: 40, sort_order: 7, status: 'fila' }),
+    mkSubj({ name: 'Latim', total_lessons: 50, sort_order: 8, status: 'concluida' }),
   ];
   const today = toISO();
   const lessonLogs: LessonLog[] = [
