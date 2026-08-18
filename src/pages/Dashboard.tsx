@@ -9,7 +9,7 @@ import { Icon } from '../lib/icons';
 import { activitiesForDate, isDone, computeStreak } from '../lib/logic';
 import {
   FOCUS_LIMIT,
-  buildFocusRoadmap,
+  buildRoadmap,
   overallStudyStats,
   subjectPlan,
   subjectStats,
@@ -74,7 +74,7 @@ export function Dashboard() {
   const study = overallStudyStats(subjects, lessonLogs);
   const totalFoco = subjects.filter((s) => s.status === 'foco').length;
   const streak = computeStreak(completions);
-  const roadmapEnd = useMemo(() => buildFocusRoadmap(subjects, lessonLogs).endISO, [subjects, lessonLogs]);
+  const roadmapEnd = useMemo(() => buildRoadmap(subjects, lessonLogs, FOCUS_LIMIT).endISO, [subjects, lessonLogs]);
 
   const booksRead = books.filter((b) => b.active).reduce((a, b) => a + Math.min(b.chapters_read, b.total_chapters), 0);
   const booksTotal = books.filter((b) => b.active).reduce((a, b) => a + b.total_chapters, 0);
@@ -115,7 +115,7 @@ export function Dashboard() {
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi label="Hoje" value={`${pct(kDone, kTotal)}%`} sub={`${kDone}/${kTotal} do dia`} icon="sun" accent="var(--accent)" />
-        <Kpi label="Em foco" value={`${totalFoco}/${FOCUS_LIMIT}`} sub="1 matéria + 2 cursos" icon="grad" />
+        <Kpi label="Em foco" value={`${totalFoco}/${FOCUS_LIMIT}`} sub="matérias + cursos" icon="grad" />
         <Kpi label="Na semana" value={String(study.lessonsThisWeek)} sub="aulas registradas" icon="check" />
         <Kpi label="Sequência" value={`${streak}`} sub="dias seguidos" icon="fire" accent="var(--gold)" />
         <Kpi label="Horas" value={`${study.hours.toFixed(0)}h`} sub="estudadas no total" icon="clock" />
