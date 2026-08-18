@@ -7,7 +7,7 @@ import { SubjectModal } from '../components/SubjectModal';
 import { Icon } from '../lib/icons';
 import { fmtMin, fmtMonthYear, fmtShort, toISO } from '../lib/date';
 import {
-  FOCUS_LIMIT,
+  FOCUS_LIMITS,
   lastLessonLog,
   overallStudyStats,
   subjectPlan,
@@ -90,10 +90,9 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
     () => ofKind.filter((s) => s.status === 'concluida').sort((a, b) => a.sort_order - b.sort_order),
     [ofKind],
   );
-  // Limite de foco é GLOBAL (Matérias + Carreira juntas).
-  const totalFoco = subjects.filter((s) => s.status === 'foco').length;
-  const focoOtherKind = totalFoco - foco.length;
-  const atLimit = totalFoco >= FOCUS_LIMIT;
+  // Foco é por área: 1 matéria + 2 cursos de carreira.
+  const limit = FOCUS_LIMITS[kind];
+  const atLimit = foco.length >= limit;
   const overall = overallStudyStats(ofKind, lessonLogs);
 
   const moduleOf = (id: string | null) => (id ? modules.find((m) => m.id === id) : undefined);
@@ -106,7 +105,7 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
   const focus = (s: Subject) => {
     if (atLimit) {
       alert(
-        `Você já tem ${FOCUS_LIMIT} em foco no total (Matérias + Carreira). Conclua ou devolva uma à fila antes de puxar a próxima.`,
+        `Limite de ${limit} ${copy.unit}${limit > 1 ? 's' : ''} em foco. Conclua ou devolva uma à fila antes de puxar a próxima.`,
       );
       return;
     }
@@ -114,13 +113,15 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
   };
   const complete = (s: Subject) => updateSubject(s.id, { status: 'concluida' });
   const toQueue = (s: Subject) => updateSubject(s.id, { status: 'fila' });
-  const move = (arr: Subject[], i: number, dir: number) => {
+  // Reordena reatribuindo sort_order sequencial (robusto mesmo quando vinham todos 0).
+  const move = (i: number, dir: number) => {
     const j = i + dir;
-    if (j < 0 || j >= arr.length) return;
-    const a = arr[i];
-    const b = arr[j];
-    updateSubject(a.id, { sort_order: b.sort_order });
-    updateSubject(b.id, { sort_order: a.sort_order });
+    if (j < 0 || j >= fila.length) return;
+    const arr = [...fila];
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+    arr.forEach((s, idx) => {
+      if (s.sort_order !== idx) updateSubject(s.id, { sort_order: idx });
+    });
   };
 
   return (
@@ -151,7 +152,7 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-x-8 gap-y-4">
-            <Stat v={`${totalFoco}/${FOCUS_LIMIT}`} k="Em foco (total)" />
+            <Stat v={`${foco.length}/${limit}`} k="Em foco" />
             <Stat v={overall.hours.toFixed(1) + 'h'} k="Horas" />
             <Stat v={String(overall.lessonsThisWeek)} k="Aulas na semana" />
             <Stat v={String(done.length)} k="Concluídas" />
@@ -162,18 +163,11 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
       {/* EM FOCO */}
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-accent">🎯 Em foco</span>
-        <span className="font-mono text-xs text-faint">{totalFoco}/{FOCUS_LIMIT} no total</span>
-        {focoOtherKind > 0 && (
-          <span className="text-[11px] text-ink-muted">
-            ({foco.length} aqui + {focoOtherKind} em {kind === 'estudo' ? 'Carreira' : 'Matérias'})
-          </span>
-        )}
+        <span className="font-mono text-xs text-faint">{foco.length}/{limit}</span>
       </div>
       {foco.length === 0 ? (
         <div className="card mb-6 grid place-items-center py-10 text-center text-sm text-ink-muted">
-          {atLimit
-            ? `As ${FOCUS_LIMIT} vagas de foco estão com ${kind === 'estudo' ? 'a Carreira' : 'as Matérias'}. Conclua uma para liberar espaço aqui.`
-            : `Nenhuma ${copy.unit} em foco. Puxe da fila abaixo (limite de ${FOCUS_LIMIT} no total).`}
+          Nenhuma {copy.unit} em foco. Puxe da fila abaixo (limite de {limit} {limit > 1 ? `${copy.unit}s` : copy.unit} em foco).
         </div>
       ) : (
         <div className="mb-6 space-y-3">
@@ -220,10 +214,10 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
                     </div>
                   </button>
                   <div className="flex items-center gap-1">
-                    <button className="icon-btn" onClick={() => move(fila, i, -1)} disabled={i === 0} title="Subir">
+                    <button className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} title="Subir">
                       ↑
                     </button>
-                    <button className="icon-btn" onClick={() => move(fila, i, 1)} disabled={i === fila.length - 1} title="Descer">
+                    <button className="icon-btn" onClick={() => move(i, 1)} disabled={i === fila.length - 1} title="Descer">
                       ↓
                     </button>
                   </div>
@@ -231,7 +225,7 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
                     className="btn btn-primary btn-sm"
                     onClick={() => focus(s)}
                     disabled={atLimit}
-                    title={atLimit ? `Máximo de ${FOCUS_LIMIT} em foco (total)` : 'Colocar em foco'}
+                    title={atLimit ? `Máximo de ${limit} em foco` : 'Colocar em foco'}
                   >
                     ▶ Focar
                   </button>
@@ -276,8 +270,8 @@ export function SubjectsPage({ kind = 'estudo' }: { kind?: SubjectKind }) {
 
       {/* Modais */}
       <AnimatePresence>
-        {creating && <SubjectModal kind={kind} focoCount={totalFoco} onClose={() => setCreating(false)} />}
-        {editing && <SubjectModal subject={editing} focoCount={totalFoco} onClose={() => setEditing(null)} />}
+        {creating && <SubjectModal kind={kind} focoCount={foco.length} onClose={() => setCreating(false)} />}
+        {editing && <SubjectModal subject={editing} focoCount={foco.length} onClose={() => setEditing(null)} />}
         {detail && (
           <SubjectDetail
             subject={detail}
