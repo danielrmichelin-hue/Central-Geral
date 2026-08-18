@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Field } from './Modal';
 import { useData } from '../context/DataContext';
 import { useToast } from './Toast';
-import { FOCUS_LIMIT } from '../lib/subjects';
+import { FOCUS_LIMITS } from '../lib/subjects';
 import { WD3, toISO } from '../lib/date';
 import type { Subject, SubjectKind, SubjectSchedule, SubjectStatus } from '../lib/types';
 
@@ -18,6 +18,7 @@ export function SubjectModal({ subject, kind = 'estudo', focoCount = 0, onClose 
   const { modules, addSubject, updateSubject, deleteSubject } = useData();
   const toast = useToast();
   const isNew = !subject;
+  const focusLimit = FOCUS_LIMITS[subject?.kind ?? kind];
 
   const [name, setName] = useState(subject?.name ?? '');
   const [moduleId, setModuleId] = useState<string>(subject?.module_id ?? '');
@@ -40,7 +41,7 @@ export function SubjectModal({ subject, kind = 'estudo', focoCount = 0, onClose 
       return;
     }
     const status: SubjectStatus | undefined = isNew
-      ? startFoco && focoCount < FOCUS_LIMIT
+      ? startFoco && focoCount < focusLimit
         ? 'foco'
         : 'fila'
       : undefined;
@@ -214,12 +215,12 @@ export function SubjectModal({ subject, kind = 'estudo', focoCount = 0, onClose 
           <input
             type="checkbox"
             checked={startFoco}
-            disabled={focoCount >= FOCUS_LIMIT}
+            disabled={focoCount >= focusLimit}
             onChange={(e) => setStartFoco(e.target.checked)}
           />
-          <span className={focoCount >= FOCUS_LIMIT ? 'text-faint' : ''}>
+          <span className={focoCount >= focusLimit ? 'text-faint' : ''}>
             Começar <b>em foco</b> agora
-            {focoCount >= FOCUS_LIMIT ? ` (limite de ${FOCUS_LIMIT} atingido)` : ` — senão vai para a fila`}
+            {focoCount >= focusLimit ? ` (limite de ${focusLimit} atingido)` : ` — senão vai para a fila`}
           </span>
         </label>
       )}
